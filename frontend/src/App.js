@@ -7,6 +7,7 @@ import PredictPage from './pages/PredictPage';
 import Result from "./pages/Result";
 import './App.css';
 import Signup from './pages/SignupPage';
+import History from "./History";
 
 function App() {
   const [user, setUser] = useState(null);
@@ -21,6 +22,10 @@ function App() {
         <Route path="/predict" element={<PredictPage />} />
         <Route path="/result" element={<Result />} />
         <Route path="/signup" element={<Signup />} />
+
+        {/* ✅ ADD THIS */}
+        <Route path="/history" element={<History />} />
+
       </Routes>
     </Router>
   );
