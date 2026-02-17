@@ -1,0 +1,76 @@
+.navbar {
+  height: 70px;
+  background-color: #ffffff;
+  border-bottom: 1px solid #e3f2fd;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 40px;
+}
+
+.nav-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logo {
+  height: 36px;
+}
+
+.brand {
+  font-size: 20px;
+  font-weight: bold;
+  color: #1a237e;
+}
+
+.nav-links {
+  list-style: none;
+  display: flex;
+  gap: 25px;
+  align-items: center;
+}
+
+.nav-links li {
+  cursor: pointer;
+  font-size: 14px;
+  color: #2c2c2c;
+}
+
+.login-btn {
+  padding: 8px 18px;
+  background: linear-gradient(135deg, #1a237e, #b71c1c);
+  color: white;
+  border-radius: 20px;
+  font-weight: 600;
+}
+.nav-links a {
+  text-decoration: none;
+  color: inherit;
+}
+
+.nav-links a:hover {
+  color: #1a237e;
+}
+/* LOADER */
+.loader {
+  width: 18px;
+  height: 18px;
+  border: 3px solid rgba(255, 255, 255, 0.4);
+  border-top: 3px solid white;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  display: inline-block;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Disable button look */
+.scan-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
