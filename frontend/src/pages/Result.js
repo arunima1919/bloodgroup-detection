@@ -7,7 +7,6 @@ function Result({ user }) {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // ✅ Use component state instead of location.state directly
   const [result, setResult] = useState(location.state || {});
   const [feedbackSent, setFeedbackSent] = useState(false);
   const [showCorrection, setShowCorrection] = useState(false);
@@ -39,14 +38,14 @@ function Result({ user }) {
 
       const res = await API.post("/predict-scan");
 
-      // ✅ Update state directly instead of navigating again
       setResult({
         bloodGroup: res.data.blood_group,
         confidence: res.data.confidence,
-        logId: res.data.log_id
+        logId: res.data.log_id,
+        gradcamImage: res.data.gradcam_image   // ✅ ADD THIS
       });
 
-      setFeedbackSent(false); // reset feedback section
+      setFeedbackSent(false);
       setShowCorrection(false);
       setSelectedGroup("");
 
@@ -67,7 +66,7 @@ function Result({ user }) {
         <h2>
           Detected Blood Group:{" "}
           <span className="blood-group">
-            {result.bloodGroup || "N/A"}
+            {result.bloodGroup || result.blood_group || "N/A"}
           </span>
         </h2>
 
@@ -81,16 +80,44 @@ function Result({ user }) {
           </b>
         </p>
 
+        {/* 🔥 Grad-CAM Section */}
+        {(result.gradcamImage || result.gradcam_image) && (
+          <div style={{ marginTop: "30px", textAlign: "center" }}>
+            <h3>(Grad-CAM Visualization)</h3>
+
+            <img
+              src={
+                process.env.REACT_APP_API_URL +
+                (result.gradcamImage || result.gradcam_image)
+              }
+              alt="Grad-CAM"
+              style={{
+                width: "300px",
+                borderRadius: "10px",
+                marginTop: "15px",
+                boxShadow: "0px 4px 15px rgba(0,0,0,0.2)"
+              }}
+            />
+
+            <p style={{ marginTop: "10px", fontSize: "14px" }}>
+              Highlighted regions indicate areas the AI focused on
+              while predicting the blood group.
+            </p>
+          </div>
+        )}
+
         <hr />
 
-        {!feedbackSent && result.logId && (
+        {isAdmin && !feedbackSent && result.logId && (
           <div className="feedback-section">
             <p><b>Is this prediction correct?</b></p>
 
             <div className="feedback-buttons">
               <button
                 className="btn-solid"
-                onClick={() => handleFeedback(result.bloodGroup)}
+                onClick={() =>
+                  handleFeedback(result.bloodGroup || result.blood_group)
+                }
               >
                 ✅ Yes
               </button>

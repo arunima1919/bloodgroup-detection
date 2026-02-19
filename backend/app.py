@@ -14,13 +14,13 @@ from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timedelta
 from werkzeug.utils import secure_filename
-
+from gradcam_utils import generate_gradcam
 # ---------------- CONFIG ----------------
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads")
 PROJECT_ROOT = os.path.dirname(BASE_DIR)
 
-MODEL_PATH = os.path.join(PROJECT_ROOT, "models", "final_blood_model_strong.keras")
+MODEL_PATH = os.path.join(PROJECT_ROOT, "models", "fast_blood_model.keras")
 CLASS_PATH = os.path.join(PROJECT_ROOT, "models", "classes.txt")
 
 IMG_SIZE = 128
@@ -234,25 +234,36 @@ def predict():
 
     try:
         file = request.files["image"]
-        filename = secure_filename(file.filename)
+
+        # ✅ create unique filename (avoid overwrite issues)
+        filename = datetime.now().strftime("%Y%m%d_%H%M%S") + ".BMP"
         file_path = os.path.join(UPLOAD_FOLDER, filename)
         file.save(file_path)
 
+        # ---------------- Preprocess ----------------
         img = cv2.imread(file_path, cv2.IMREAD_GRAYSCALE)
         if img is None:
             raise ValueError("Invalid image")
 
-        img = cv2.resize(img, (IMG_SIZE, IMG_SIZE))
-        img = cv2.equalizeHist(img)
-        img = img.astype("float32") / 255.0
-        img = np.expand_dims(img, axis=-1)
-        img = np.expand_dims(img, axis=0)
+        img_resized = cv2.resize(img, (IMG_SIZE, IMG_SIZE))
+        img_equalized = cv2.equalizeHist(img_resized)
+        img_normalized = img_equalized.astype("float32") / 255.0
+        img_input = np.expand_dims(img_normalized, axis=-1)
+        img_input = np.expand_dims(img_input, axis=0)
 
-        preds = model.predict(img)
+        # ---------------- Prediction ----------------
+        preds = model.predict(img_input)
         class_index = int(np.argmax(preds[0]))
         confidence = float(np.max(preds[0]))
         blood_group = class_names[class_index]
 
+        # ---------------- Grad-CAM ----------------
+        gradcam_filename = "gradcam_" + filename
+        gradcam_path = os.path.join("static", gradcam_filename)
+
+        generate_gradcam(model, file_path, gradcam_path)
+
+        # ---------------- Save Log ----------------
         log = PredictionLog(
             image_name=filename,
             prediction=blood_group,
@@ -261,22 +272,23 @@ def predict():
         db.session.add(log)
         db.session.commit()
 
-        del img
+        del img_input
         gc.collect()
 
         return jsonify({
             "blood_group": blood_group,
             "confidence": confidence,
+            "gradcam_image": f"/static/{gradcam_filename}",
             "log_id": log.id
         })
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+
 # ---------------- PREDICT SCAN ----------------
 @app.route("/predict-scan", methods=["POST"])
 def predict_scan():
-    print("SESSION DATA:", dict(session))
     if session.get("role") != "admin":
         return jsonify({"error": "Unauthorized"}), 403
 
@@ -289,36 +301,53 @@ def predict_scan():
         if img is None:
             return jsonify({"error": "Failed to read image"}), 400
 
-        img = cv2.resize(img, (IMG_SIZE, IMG_SIZE))
-        img = cv2.equalizeHist(img)
-        img = img.astype("float32") / 255.0
-        img = np.expand_dims(img, axis=-1)
-        img = np.expand_dims(img, axis=0)
+        img_resized = cv2.resize(img, (IMG_SIZE, IMG_SIZE))
+        img_equalized = cv2.equalizeHist(img_resized)
+        img_normalized = img_equalized.astype("float32") / 255.0
+        img_input = np.expand_dims(img_normalized, axis=-1)
+        img_input = np.expand_dims(img_input, axis=0)
 
-        print("Image ready for prediction, shape:", img.shape)
-
-        preds = model.predict(img)
+        preds = model.predict(img_input)
         class_index = int(np.argmax(preds[0]))
         confidence = float(np.max(preds[0]))
         blood_group = class_names[class_index]
 
+        # ✅ Generate Grad-CAM
+        filename = datetime.now().strftime("%Y%m%d_%H%M%S") + ".BMP"
+        gradcam_filename = "gradcam_" + filename
+        gradcam_path = os.path.join("static", gradcam_filename)
+
+        generate_gradcam(model, sample_path, gradcam_path)
+
+        # Save log
+        # Save scanned image into uploads first
+        filename = datetime.now().strftime("%Y%m%d_%H%M%S") + ".BMP"
+        file_path = os.path.join(UPLOAD_FOLDER, filename)
+
+        # Copy sample into uploads so it is stored permanently
+        import shutil
+        shutil.copy(sample_path, file_path)
+
+        # Save log using correct stored filename
         log = PredictionLog(
-            image_name="a.BMP",
+            image_name=filename,
             prediction=blood_group,
             confidence=confidence
         )
+
         db.session.add(log)
         db.session.commit()
 
         return jsonify({
             "blood_group": blood_group,
             "confidence": confidence,
-            "log_id": log.id
+            "log_id": log.id,
+            "gradcam_image": f"/static/{gradcam_filename}"  # ✅ ADD THIS
         })
 
     except Exception as e:
-        print("Error during prediction:", e)
         return jsonify({"error": str(e)}), 500
+
 
 
 # ---------------- ADMIN VIEW ----------------
@@ -341,6 +370,34 @@ def admin_view_predictions():
         })
 
     return jsonify(result)
+
+# ---------------- FEEDBACK ----------------
+@app.route("/feedback", methods=["POST"])
+def feedback():
+    try:
+        data = request.json
+        log_id = data.get("log_id")
+        actual_label = data.get("actual_label")
+
+        if not log_id or not actual_label:
+            return jsonify({"error": "Missing data"}), 400
+
+        log = PredictionLog.query.get(log_id)
+
+        if not log:
+            return jsonify({"error": "Log not found"}), 404
+
+        log.actual_label = actual_label
+        log.is_correct = (log.prediction == actual_label)
+
+        db.session.commit()
+
+        return jsonify({"message": "Feedback saved successfully"})
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
 
 # ---------------- LOGOUT ----------------
 @app.route("/logout", methods=["POST"])
