@@ -1,5 +1,6 @@
 import os
 import cv2
+import shutil
 import numpy as np
 import tensorflow as tf
 import gc
@@ -7,23 +8,22 @@ import random
 import smtplib
 from email.mime.text import MIMEText
 from flask_bcrypt import Bcrypt
-
-
 from flask import Flask, request, jsonify, session
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timedelta
 from werkzeug.utils import secure_filename
 from gradcam_utils import generate_gradcam
+
 # ---------------- CONFIG ----------------
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads")
 PROJECT_ROOT = os.path.dirname(BASE_DIR)
 
-MODEL_PATH = os.path.join(PROJECT_ROOT, "models", "fast_blood_model.keras")
+MODEL_PATH = os.path.join(PROJECT_ROOT, "models", "retrained_fingerprint_v2.keras")
 CLASS_PATH = os.path.join(PROJECT_ROOT, "models", "classes.txt")
 
-IMG_SIZE = 128
+IMG_SIZE = 64  # must match your training dataset
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # ---------------- FLASK SETUP ----------------
@@ -39,7 +39,6 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db = SQLAlchemy(app)
 
 # ---------------- DATABASE MODELS ----------------
-
 class PredictionLog(db.Model):
     __tablename__ = "prediction_logs"
 
@@ -50,7 +49,6 @@ class PredictionLog(db.Model):
     actual_label = db.Column(db.String(50), nullable=True)
     is_correct = db.Column(db.Boolean, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
 
 
 class User(db.Model):
@@ -66,15 +64,21 @@ class User(db.Model):
     otp_expiry = db.Column(db.DateTime, nullable=True)
 
 
+# ---------------- LOAD MODEL & CLASS NAMES ----------------
+try:
+    model = tf.keras.models.load_model(MODEL_PATH)
+    print("Model loaded successfully.")
+except Exception as e:
+    print("Error loading model:", e)
+    model = None
 
-# ---------------- LOAD MODEL ----------------
-model = tf.keras.models.load_model(MODEL_PATH)
-
-with open(CLASS_PATH, "r") as f:
-    class_names = [line.strip() for line in f.readlines()]
-
-print("Classes loaded:", class_names)
-
+try:
+    with open(CLASS_PATH, "r") as f:
+        class_names = [line.strip() for line in f.readlines()]
+    print("Classes loaded:", class_names)
+except Exception as e:
+    print("Error loading class names:", e)
+    class_names = []
 # ---------------- AUTH HELPERS ----------------
 def admin_required():
     return session.get("role") == "admin"
@@ -83,8 +87,6 @@ def admin_required():
 def user_required():
     return "user_id" in session
 
-
-# ---------------- USER SIGNUP ----------------
 
 # ---------------- SIGNUP ROUTE ----------------
 @app.route("/signup", methods=["POST"])
@@ -188,8 +190,6 @@ def verify_otp():
     })
 
 
-
-
 # ---------------- USER LOGIN ----------------
 @app.route("/login", methods=["POST"])
 def login():
@@ -222,10 +222,6 @@ def login():
         }
     })
 
-
-
-
-
 # ---------------- PREDICTION ----------------
 @app.route("/predict", methods=["POST"])
 def predict():
@@ -235,50 +231,56 @@ def predict():
     try:
         file = request.files["image"]
 
-        # ✅ create unique filename (avoid overwrite issues)
+        # ✅ Create unique filename
         filename = datetime.now().strftime("%Y%m%d_%H%M%S") + ".BMP"
         file_path = os.path.join(UPLOAD_FOLDER, filename)
         file.save(file_path)
 
-        # ---------------- Preprocess ----------------
-        img = cv2.imread(file_path, cv2.IMREAD_GRAYSCALE)
-        if img is None:
-            raise ValueError("Invalid image")
+        # --------------- Preprocess (Aligned with Retraining) ----------------
+        
+        # 1. Read image in Color (to match tf.image.rgb_to_grayscale behavior)
+        img_bgr = cv2.imread(file_path)
+        if img_bgr is None:
+            raise ValueError("Invalid image file")
 
-        img_resized = cv2.resize(img, (IMG_SIZE, IMG_SIZE))
-        img_equalized = cv2.equalizeHist(img_resized)
-        img_normalized = img_equalized.astype("float32") / 255.0
-        img_input = np.expand_dims(img_normalized, axis=-1)
-        img_input = np.expand_dims(img_input, axis=0)
+        # 2. Resize to match training (64x64)
+        img_resized = cv2.resize(img_bgr, (IMG_SIZE, IMG_SIZE))
 
-        # ---------------- Prediction ----------------
+        # 3. Convert to Grayscale (Standard RGB -> Gray weights)
+        img_gray = cv2.cvtColor(img_resized, cv2.COLOR_BGR2GRAY)
+
+        # 4. Normalize (0.0 to 1.0)
+        # REMOVED: img_equalized = cv2.equalizeHist(img_resized) 
+        img_normalized = img_gray.astype("float32") / 255.0
+
+        # 5. Add dimensions: (Batch, Height, Width, Channels) -> (1, 64, 64, 1)
+        img_input = np.expand_dims(img_normalized, axis=(0, -1))
+
+        # --------------- Prediction ----------------
         preds = model.predict(img_input)
         class_index = int(np.argmax(preds[0]))
         confidence = float(np.max(preds[0]))
-        blood_group = class_names[class_index]
+        
+        # class_names should be the updated list from your classes.txt
+        predicted_identity = class_names[class_index]
 
-        # ---------------- Grad-CAM ----------------
-        gradcam_filename = "gradcam_" + filename
-        gradcam_path = os.path.join("static", gradcam_filename)
-
-        generate_gradcam(model, file_path, gradcam_path)
-
-        # ---------------- Save Log ----------------
+        # --------------- Save Log ----------------
         log = PredictionLog(
             image_name=filename,
-            prediction=blood_group,
+            prediction=predicted_identity,
             confidence=confidence
         )
         db.session.add(log)
         db.session.commit()
 
+        # Clean up memory
         del img_input
         gc.collect()
 
         return jsonify({
-            "blood_group": blood_group,
+            "blood_group": predicted_identity, # Keeping key name 'blood_group' for frontend compatibility
             "confidence": confidence,
-            "gradcam_image": f"/static/{gradcam_filename}",
+            "gradcam_image": None,
             "log_id": log.id
         })
 
@@ -293,61 +295,66 @@ def predict_scan():
         return jsonify({"error": "Unauthorized"}), 403
 
     try:
+        # Path of scanned image
         sample_path = os.path.join(PROJECT_ROOT, "sample_input", "a.BMP")
+
         if not os.path.exists(sample_path):
             return jsonify({"error": "Scanned file not found"}), 400
 
-        img = cv2.imread(sample_path, cv2.IMREAD_GRAYSCALE)
-        if img is None:
-            return jsonify({"error": "Failed to read image"}), 400
-
-        img_resized = cv2.resize(img, (IMG_SIZE, IMG_SIZE))
-        img_equalized = cv2.equalizeHist(img_resized)
-        img_normalized = img_equalized.astype("float32") / 255.0
-        img_input = np.expand_dims(img_normalized, axis=-1)
-        img_input = np.expand_dims(img_input, axis=0)
-
-        preds = model.predict(img_input)
-        class_index = int(np.argmax(preds[0]))
-        confidence = float(np.max(preds[0]))
-        blood_group = class_names[class_index]
-
-        # ✅ Generate Grad-CAM
-        filename = datetime.now().strftime("%Y%m%d_%H%M%S") + ".BMP"
-        gradcam_filename = "gradcam_" + filename
-        gradcam_path = os.path.join("static", gradcam_filename)
-
-        generate_gradcam(model, sample_path, gradcam_path)
-
-        # Save log
-        # Save scanned image into uploads first
+        # ✅ Create unique filename for saving
         filename = datetime.now().strftime("%Y%m%d_%H%M%S") + ".BMP"
         file_path = os.path.join(UPLOAD_FOLDER, filename)
 
-        # Copy sample into uploads so it is stored permanently
-        import shutil
+        # Copy scanned file to uploads
         shutil.copy(sample_path, file_path)
 
-        # Save log using correct stored filename
+        # --------------- Preprocess (Same as /predict) ----------------
+        
+        # 1. Read image in Color
+        img_bgr = cv2.imread(file_path)
+        if img_bgr is None:
+            raise ValueError("Invalid scanned image file")
+
+        # 2. Resize to 64x64
+        img_resized = cv2.resize(img_bgr, (IMG_SIZE, IMG_SIZE))
+
+        # 3. Convert to Grayscale
+        img_gray = cv2.cvtColor(img_resized, cv2.COLOR_BGR2GRAY)
+
+        # 4. Normalize (0 to 1)
+        img_normalized = img_gray.astype("float32") / 255.0
+
+        # 5. Expand dimensions (1, 64, 64, 1)
+        img_input = np.expand_dims(img_normalized, axis=(0, -1))
+
+        # --------------- Prediction ----------------
+        preds = model.predict(img_input)
+        class_index = int(np.argmax(preds[0]))
+        confidence = float(np.max(preds[0]))
+        predicted_identity = class_names[class_index]
+
+        # --------------- Save Log ----------------
         log = PredictionLog(
             image_name=filename,
-            prediction=blood_group,
+            prediction=predicted_identity,
             confidence=confidence
         )
-
         db.session.add(log)
         db.session.commit()
 
+        # Clean memory
+        del img_input
+        gc.collect()
+
         return jsonify({
-            "blood_group": blood_group,
+            "blood_group": predicted_identity,
             "confidence": confidence,
-            "log_id": log.id,
-            "gradcam_image": f"/static/{gradcam_filename}"  # ✅ ADD THIS
+            "gradcam_image": None,
+            "log_id": log.id
         })
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
 
 
 # ---------------- ADMIN VIEW ----------------

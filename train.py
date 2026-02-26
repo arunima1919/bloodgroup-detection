@@ -1,96 +1,201 @@
+# ------------------------------
+# Kaggle Notebook: Train & Save Model (Improved Version)
+# ------------------------------
+
+import tensorflow as tf
+import numpy as np
 import os
 import cv2
-import numpy as np
-import tensorflow as tf
 from sklearn.model_selection import train_test_split
-from sklearn.utils.class_weight import compute_class_weight
-from sklearn.metrics import classification_report, confusion_matrix
+from collections import Counter
 
-# ---------------- CONFIG ----------------
-IMG_SIZE = 128
+# ------------------------------
+# CONFIG
+# ------------------------------
 BATCH_SIZE = 32
-EPOCHS = 3  # small for fast iteration
-DATASET_PATH = "dataset"
-MODEL_DIR = "models"
-MODEL_FILE = "fast_blood_model.keras"
-CLASSES = sorted(os.listdir(DATASET_PATH))  # detect classes automatically
+IMG_SIZE = (64, 64)
+dataset_path = "/kaggle/input/fingerprint1/dataset"
 
-os.makedirs(MODEL_DIR, exist_ok=True)
+OUTPUT_DIR = "/kaggle/working/"
+MODEL_FILE = os.path.join(OUTPUT_DIR, "best_original1_cnn.keras")
+CLASS_FILE = os.path.join(OUTPUT_DIR, "classes.txt")
 
-# ---------------- LOAD DATA ----------------
-X, y = [], []
+# ------------------------------
+# LOAD DATASET (GRAYSCALE)
+# ------------------------------
+raw_dataset = tf.keras.utils.image_dataset_from_directory(
+    dataset_path,
+    label_mode='int',
+    image_size=IMG_SIZE,
+    batch_size=None,
+    shuffle=True
+   
+)
 
-for idx, label in enumerate(CLASSES):
-    folder = os.path.join(DATASET_PATH, label)
-    for img_name in os.listdir(folder):
-        img_path = os.path.join(folder, img_name)
-        img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
-        if img is None:
-            continue
-        img = cv2.resize(img, (IMG_SIZE, IMG_SIZE))
-        img = img.astype("float32") / 255.0
-        X.append(np.expand_dims(img, axis=-1))
-        y.append(idx)
+class_names = raw_dataset.class_names
 
-X = np.array(X)
-y = np.array(y)
+imgs, labels = [], []
 
-# ---------------- SPLIT ----------------
+for img, lbl in raw_dataset:
+    img_np = img.numpy().astype(np.uint8)
+    img_gray = cv2.cvtColor(img_np, cv2.COLOR_RGB2GRAY)
+    imgs.append(img_gray)
+    labels.append(lbl.numpy())
+
+imgs = np.array(imgs)
+labels = np.array(labels)
+
+# Add grayscale channel
+imgs = imgs[..., np.newaxis]  # (N, 64, 64, 1)
+
+print("Total Dataset Shape:", imgs.shape)
+
+# ------------------------------
+# STRATIFIED SPLIT
+# ------------------------------
+
+# 10% test
+X_trainval, X_test, y_trainval, y_test = train_test_split(
+    imgs,
+    labels,
+    test_size=0.10,
+    stratify=labels,
+    random_state=42
+)
+
+# 20% validation (from remaining 90%)
 X_train, X_val, y_train, y_val = train_test_split(
-    X, y, test_size=0.2, stratify=y, random_state=42
+    X_trainval,
+    y_trainval,
+    test_size=0.2222,
+    stratify=y_trainval,
+    random_state=42
 )
 
-# ---------------- CLASS WEIGHTS ----------------
-class_weights = compute_class_weight(
-    class_weight="balanced", classes=np.unique(y_train), y=y_train
-)
-class_weights = dict(enumerate(class_weights))
+print("Train:", X_train.shape)
+print("Val:", X_val.shape)
+print("Test:", X_test.shape)
 
-# ---------------- CNN MODEL (SMALL & FAST) ----------------
-model = tf.keras.models.Sequential([
-    tf.keras.layers.Conv2D(16, (3,3), activation='relu', input_shape=(IMG_SIZE, IMG_SIZE, 1)),
-    tf.keras.layers.MaxPooling2D(),
-    
-    tf.keras.layers.Conv2D(32, (3,3), activation='relu'),
-    tf.keras.layers.MaxPooling2D(),
-    
-    tf.keras.layers.Conv2D(64, (3,3), activation='relu'),
-    tf.keras.layers.MaxPooling2D(),
-    
-    tf.keras.layers.Flatten(),
-    tf.keras.layers.Dense(128, activation='relu'),
-    tf.keras.layers.Dropout(0.3),
-    tf.keras.layers.Dense(len(CLASSES), activation='softmax')
-])
+# ------------------------------
+# BALANCE ONLY TRAINING SET
+# ------------------------------
 
-model.compile(
-    optimizer=tf.keras.optimizers.Adam(1e-4),
-    loss="sparse_categorical_crossentropy",
-    metrics=["accuracy"]
-)
+train_counts = Counter(y_train)
+max_count = max(train_counts.values())
 
-# ---------------- CALLBACKS ----------------
+balanced_indices = []
+
+for cls_id, cls_count in train_counts.items():
+    indices = np.where(y_train == cls_id)[0]
+    reps = max_count // cls_count + (max_count % cls_count > 0)
+    balanced_indices.extend(np.tile(indices, reps)[:max_count].tolist())
+
+balanced_indices = np.random.permutation(balanced_indices)
+
+X_train_bal = X_train[balanced_indices]
+y_train_bal = y_train[balanced_indices]
+
+print("Balanced Train Shape:", X_train_bal.shape)
+
+# ------------------------------
+# CREATE TF DATASETS
+# ------------------------------
+
+def create_ds(images, labels, shuffle=False, repeat=False):
+    ds = tf.data.Dataset.from_tensor_slices((images, labels))
+    if shuffle:
+        ds = ds.shuffle(len(images), seed=42)
+    ds = ds.map(lambda x, y: (tf.cast(x, tf.float32)/255.0, y))
+    ds = ds.batch(BATCH_SIZE, drop_remainder=True)
+    if repeat:
+        ds = ds.repeat()
+    return ds
+
+train_dataset = create_ds(X_train_bal, y_train_bal, shuffle=True, repeat=True)
+val_dataset   = create_ds(X_val, y_val)
+test_dataset  = create_ds(X_test, y_test)
+
+steps_per_epoch = len(X_train_bal) // BATCH_SIZE
+validation_steps = len(X_val) // BATCH_SIZE
+
+# ------------------------------
+# DEFINE CNN MODEL
+# ------------------------------
+
+def original_cnn_model_fixed():
+    inputs = tf.keras.Input(shape=(*IMG_SIZE, 1), name="input_layer")
+    
+    x = tf.keras.layers.Conv2D(32, (3,3), activation='relu', padding='same')(inputs)
+    x = tf.keras.layers.MaxPooling2D(2,2)(x)
+    x = tf.keras.layers.Dropout(0.1)(x)
+    
+    x = tf.keras.layers.Conv2D(64, (3,3), activation='relu', padding='same')(x)
+    x = tf.keras.layers.MaxPooling2D(2,2)(x)
+    x = tf.keras.layers.Dropout(0.2)(x)
+    
+    x = tf.keras.layers.Conv2D(128, (3,3), activation='relu', padding='same')(x)
+    x = tf.keras.layers.MaxPooling2D(2,2)(x)
+    x = tf.keras.layers.Dropout(0.3)(x)
+    
+    x = tf.keras.layers.Conv2D(256, (3,3), activation='relu', padding='same')(x)
+    x = tf.keras.layers.MaxPooling2D(2,2)(x)
+    x = tf.keras.layers.Dropout(0.4)(x)
+    
+    x = tf.keras.layers.Flatten()(x)
+    x = tf.keras.layers.Dense(512, activation='relu')(x)
+    x = tf.keras.layers.Dropout(0.4)(x)
+    
+    outputs = tf.keras.layers.Dense(len(class_names), activation='softmax')(x)
+    
+    model = tf.keras.Model(inputs=inputs, outputs=outputs, name="original_cnn_fixed")
+    
+    model.compile(
+        optimizer=tf.keras.optimizers.Adam(learning_rate=1e-4),
+        loss='sparse_categorical_crossentropy',
+        metrics=['accuracy']
+    )
+    
+    return model
+
+model = original_cnn_model_fixed()
+model.summary()
+
+# ------------------------------
+# TRAIN MODEL
+# ------------------------------
+
 callbacks = [
-    tf.keras.callbacks.EarlyStopping(patience=3, restore_best_weights=True),
-    tf.keras.callbacks.ReduceLROnPlateau(patience=2, factor=0.5, verbose=1),
-    tf.keras.callbacks.ModelCheckpoint(os.path.join(MODEL_DIR, MODEL_FILE), save_best_only=True)
+    tf.keras.callbacks.EarlyStopping(
+        monitor='val_loss',
+        patience=10,
+        restore_best_weights=True,
+        verbose=1
+    ),
+    tf.keras.callbacks.ModelCheckpoint(
+        MODEL_FILE,
+        save_best_only=True,
+        monitor='val_loss',
+        verbose=1
+    )
 ]
 
-# ---------------- TRAIN ----------------
 history = model.fit(
-    X_train, y_train,
-    validation_data=(X_val, y_val),
-    epochs=EPOCHS,
-    batch_size=BATCH_SIZE,
-    class_weight=class_weights,
-    callbacks=callbacks,
-    verbose=1
+    train_dataset,
+    epochs=100,
+    steps_per_epoch=steps_per_epoch,
+    validation_data=val_dataset,
+    validation_steps=validation_steps,
+    callbacks=callbacks
 )
 
-# ---------------- EVALUATE ----------------
-val_loss, val_acc = model.evaluate(X_val, y_val)
-print(f"Validation Accuracy: {val_acc:.4f}")
+# ------------------------------
+# SAVE MODEL & CLASS NAMES
+# ------------------------------
 
-y_pred = np.argmax(model.predict(X_val), axis=1)
-print("\nClassification Report:\n")
-print(classification_report(y_val, y_pred, target_names=CLASSES))
+model.save(MODEL_FILE)
+
+with open(CLASS_FILE, "w") as f:
+    f.write("\n".join(class_names))
+
+print(f"Model saved to: {MODEL_FILE}")
+print(f"Classes saved to: {CLASS_FILE}")

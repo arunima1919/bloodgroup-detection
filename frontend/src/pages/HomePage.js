@@ -70,16 +70,59 @@ function HomePage() {
             <p>Instant blood group prediction.</p>
           </div>
         </div>
+        <span>⚠️</span>
+            <p style={{ fontSize: "12px", color: "#666", margin: 0 }}>
+              <strong>Disclaimer:</strong> This is a research prototype.
+              Results are for demonstration purposes only. Not intended for
+              clinical or medical use.
+            </p>
       </section>
 
-      <footer style={footer}>
-        © 2025 HemoPrint | Fingerprint Blood Group Detection
-      </footer>
+      {/* FOOTER */}
+      {/* <footer className="main-footer">
+  <div className="footer-container">
+
+    <div className="footer-section">
+      <h3>🩸 HemoPrint</h3>
+      <p>
+        AI-powered blood group detection using fingerprint analysis.
+        Built with advanced Deep Learning & CNN models.
+      </p>
+    </div>
+
+    <div className="footer-section">
+      <h4>Quick Links</h4>
+      <ul>
+        <li><a href="/">Home</a></li>
+        <li><a href="/user/login">User Login</a></li>
+        <li><a href="/admin/login">Admin Login</a></li>
+        <li><a href="/about">About Project</a></li>
+      </ul>
+    </div>
+
+    <div className="footer-section">
+      <h4>Contact</h4>
+      <p>Email: support@hemoprint.ai</p>
+      <p>Phone: +91 98765 43210</p>
+      <p>Location: India</p>
+    </div>
+
+  </div>
+
+  <div className="footer-bottom">
+    <p>
+      ⚠️ This system is a research prototype. Not intended for clinical use.
+    </p>
+    <p>© 2026 HemoPrint | All Rights Reserved</p>
+  </div>
+</footer> */}
+
     </>
   );
 }
 
 /* STYLES */
+
 const hero = {
   minHeight: "90vh",
   background: "linear-gradient(135deg, #1a237e, #b71c1c)",

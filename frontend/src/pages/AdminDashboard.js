@@ -7,12 +7,30 @@ export default function AdminDashboard() {
   const [logs, setLogs] = useState([]);
   const [showLogs, setShowLogs] = useState(false);
   const [loadingScan, setLoadingScan] = useState(false);
+  const [currentStep, setCurrentStep] = useState("");
 
   const handleQuickScan = async () => {
     try {
       setLoadingScan(true);
+
+      // Call backend
       const res = await API.post("/predict-scan");
 
+      // Only preprocessing steps (NO extra messages)
+      const preprocessingSteps = [
+        "Resizing image...",
+        "Converting to grayscale...",
+        "Normalizing pixel values...",
+        "Preparing input tensor..."
+      ];
+
+      // Show each step one by one
+      for (let i = 0; i < preprocessingSteps.length; i++) {
+        setCurrentStep(preprocessingSteps[i]);
+        await new Promise((resolve) => setTimeout(resolve, 700));
+      }
+
+      // After steps → go to result page
       navigate("/result", {
         state: {
           bloodGroup: res.data.blood_group,
@@ -20,10 +38,14 @@ export default function AdminDashboard() {
           logId: res.data.log_id,
         },
       });
+
     } catch (err) {
       alert("No scanned fingerprint found. Please scan first.");
     } finally {
-      setLoadingScan(false);
+      setTimeout(() => {
+        setLoadingScan(false);
+        setCurrentStep("");
+      }, 500);
     }
   };
 
@@ -44,8 +66,20 @@ export default function AdminDashboard() {
         <h1>Admin Control Panel</h1>
         <p>Scan fingerprints quickly or manually upload and review logs</p>
 
-        <div style={{ marginTop: "30px", display: "flex", gap: "20px", flexWrap: "wrap", justifyContent: "center" }}>
-          <button style={scanBtn} onClick={handleQuickScan} disabled={loadingScan}>
+        <div
+          style={{
+            marginTop: "30px",
+            display: "flex",
+            gap: "20px",
+            flexWrap: "wrap",
+            justifyContent: "center",
+          }}
+        >
+          <button
+            style={scanBtn}
+            onClick={handleQuickScan}
+            disabled={loadingScan}
+          >
             {loadingScan ? "Scanning..." : "⚡ Quick Scan"}
           </button>
 
@@ -57,6 +91,19 @@ export default function AdminDashboard() {
             View Prediction Logs
           </button>
         </div>
+
+        {/* LIVE PROCESS DISPLAY */}
+        {loadingScan && (
+          <div
+            style={{
+              marginTop: "30px",
+              fontSize: "18px",
+              fontWeight: "bold",
+            }}
+          >
+            {currentStep}
+          </div>
+        )}
       </section>
 
       {/* LOGS TABLE */}
@@ -153,4 +200,3 @@ const table = {
   borderCollapse: "collapse",
   textAlign: "center",
 };
-

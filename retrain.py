@@ -1,153 +1,73 @@
+import tensorflow as tf
+import numpy as np
 import os
 import cv2
-import numpy as np
-import tensorflow as tf
-import matplotlib.pyplot as plt
-import seaborn as sns
 
-from sklearn.model_selection import train_test_split
-from sklearn.utils.class_weight import compute_class_weight
-from sklearn.metrics import classification_report, confusion_matrix
-
-from tensorflow.keras.callbacks import ReduceLROnPlateau, EarlyStopping
-from tensorflow.keras.preprocessing.image import ImageDataGenerator
-
-# ---------------- CONFIG ----------------
-IMG_SIZE = 128
+# --- CONFIG ---
+IMG_SIZE = (64, 64)
 BATCH_SIZE = 32
-EPOCHS = 15
+# Path to the folder containing BOTH old and new individual subfolders
+COMBINED_DATASET_PATH = "/kaggle/input/datasets/arunimaaaaa/ds-combined/dataset_combined" 
+OLD_MODEL_FILE = "/kaggle/input/models/arunimaaaaa/original-model/keras/default/1/best_original1_cnn.keras"
+NEW_MODEL_FILE = "/kaggle/working/retrained_fingerprint_v2.keras"
+CLASS_FILE = "/kaggle/working/classes.txt"
 
-DATASET_PATH = "dataset_combined"   # ✅ changed
-MODEL_PATH = os.path.join("models", "final_blood_model_strong.keras")
-NEW_MODEL_PATH = os.path.join("models", "final_blood_model_retrained_augmented.keras")  # ✅ new file
-
-CLASSES = ['A+', 'A-', 'AB+', 'AB-', 'B+', 'B-', 'O+', 'O-']
-
-# ---------------- LOAD SAVED MODEL ----------------
-print("📦 Loading base trained model...")
-model = tf.keras.models.load_model(MODEL_PATH)
-print("✅ Model loaded successfully.")
-
-# ---------------- LOAD DATA ----------------
-def load_images(data_path):
-    images, labels = [], []
-
-    for idx, label in enumerate(CLASSES):
-        folder = os.path.join(data_path, label)
-        if not os.path.exists(folder):
-            print(f"⚠ Warning: {label} folder not found in {data_path}")
-            continue
-
-        for img_name in os.listdir(folder):
-            img_path = os.path.join(folder, img_name)
-            img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
-
-            if img is None:
-                continue
-
-            img = cv2.resize(img, (IMG_SIZE, IMG_SIZE))
-            img = cv2.equalizeHist(img)
-            img = cv2.GaussianBlur(img, (3, 3), 0)
-
-            img = img.astype("float32") / 255.0
-            img = np.expand_dims(img, axis=-1)
-
-            images.append(img)
-            labels.append(idx)
-
-    return np.array(images), np.array(labels)
-
-
-print("📂 Loading augmented dataset...")
-X, y = load_images(DATASET_PATH)
-print("Total samples:", len(X))
-
-# ---------------- SPLIT ----------------
-X_train, X_val, y_train, y_val = train_test_split(
-    X, y,
-    test_size=0.2,
-    stratify=y,
-    random_state=42
+# 1. LOAD DATASET (Combined Old + New)
+raw_ds = tf.keras.utils.image_dataset_from_directory(
+    COMBINED_DATASET_PATH,
+    label_mode='int',
+    image_size=IMG_SIZE,
+    batch_size=BATCH_SIZE,
+    shuffle=True
 )
 
-# ---------------- CLASS WEIGHTS ----------------
-class_weights = compute_class_weight(
-    class_weight="balanced",
-    classes=np.unique(y_train),
-    y=y_train
-)
-class_weights = dict(enumerate(class_weights))
+new_class_names = raw_ds.class_names
+num_classes = len(new_class_names)
 
-# ---------------- DATA AUGMENTATION ----------------
-train_datagen = ImageDataGenerator(
-    rotation_range=15,
-    width_shift_range=0.08,
-    height_shift_range=0.08,
-    zoom_range=0.15,
-    shear_range=0.08
-)
+# Preprocessing: Grayscale + Normalization
+def preprocess(img, lbl):
+    img = tf.image.rgb_to_grayscale(img)
+    img = tf.cast(img, tf.float32) / 255.0
+    return img, lbl
 
-val_datagen = ImageDataGenerator()
+train_ds = raw_ds.map(preprocess).prefetch(tf.data.AUTOTUNE)
 
-train_generator = train_datagen.flow(
-    X_train, y_train,
-    batch_size=BATCH_SIZE
-)
+# 2. LOAD PRE-TRAINED MODEL
+print("Loading existing model...")
+base_model = tf.keras.models.load_model(OLD_MODEL_FILE)
 
-val_generator = val_datagen.flow(
-    X_val, y_val,
-    batch_size=BATCH_SIZE
-)
+# 3. MODIFY FOR NEW CLASSES (If number of people changed)
+if base_model.layers[-1].units != num_classes:
+    print(f"Updating output layer from {base_model.layers[-1].units} to {num_classes} classes.")
+    # Extract the layer before the final dense layer
+    x = base_model.layers[-2].output 
+    new_outputs = tf.keras.layers.Dense(num_classes, activation='softmax', name="predictions")(x)
+    model = tf.keras.Model(inputs=base_model.input, outputs=new_outputs)
+else:
+    model = base_model
 
-# ---------------- CALLBACKS ----------------
-lr_scheduler = ReduceLROnPlateau(
-    monitor="val_loss",
-    factor=0.5,
-    patience=3,
-    verbose=1
-)
+# 4. FREEZE CONVOLUTIONAL LAYERS
+# We freeze the first 12 layers (the Conv/Pool blocks) so only the Dense layers learn
+for layer in model.layers[:-4]:
+    layer.trainable = False
 
-early_stop = EarlyStopping(
-    monitor="val_loss",
-    patience=5,
-    restore_best_weights=True,
-    verbose=1
+# 5. RE-COMPILE WITH LOWER LEARNING RATE
+model.compile(
+    optimizer=tf.keras.optimizers.Adam(learning_rate=1e-5), # Very slow learning
+    loss='sparse_categorical_crossentropy',
+    metrics=['accuracy']
 )
 
-# ---------------- RETRAIN ----------------
-print("🚀 Retraining on augmented dataset...")
-history = model.fit(
-    train_generator,
-    validation_data=val_generator,
-    epochs=EPOCHS,
-    class_weight=class_weights,
-    callbacks=[lr_scheduler, early_stop]
+# 6. FINE-TUNE
+print("Starting Fine-Tuning...")
+model.fit(
+    train_ds,
+    epochs=20, # Usually 10-20 epochs is enough for fine-tuning
 )
 
-# ---------------- EVALUATION ----------------
-print("\n🔍 Evaluating Retrained Model...")
-val_loss, val_acc = model.evaluate(X_val, y_val)
-print("Validation Accuracy:", val_acc)
+# 7. SAVE UPDATED MODEL & CLASSES
+model.save(NEW_MODEL_FILE)
+with open(CLASS_FILE, "w") as f:
+    f.write("\n".join(new_class_names))
 
-y_pred = np.argmax(model.predict(X_val), axis=1)
-
-print("\n📊 Classification Report:")
-print(classification_report(y_val, y_pred, target_names=CLASSES))
-
-# ---------------- CONFUSION MATRIX ----------------
-cm = confusion_matrix(y_val, y_pred)
-
-plt.figure(figsize=(8,6))
-sns.heatmap(cm, annot=True, fmt='d',
-            xticklabels=CLASSES,
-            yticklabels=CLASSES,
-            cmap="Blues")
-
-plt.xlabel("Predicted")
-plt.ylabel("Actual")
-plt.title("Confusion Matrix - Retrained (Augmented)")
-plt.show()
-
-# ---------------- SAVE UPDATED MODEL ----------------
-model.save(NEW_MODEL_PATH)
-print(f"✅ Retrained model saved as: {NEW_MODEL_PATH}")
+print(f"Retraining complete. New model saved as {NEW_MODEL_FILE}")

@@ -1,7 +1,7 @@
-import React, { useState, useRef } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import "../ScanUpload.css";
+import "../Result.css";   // ✅ Use SAME CSS as Result Page
 
 function PredictPage() {
   const [file, setFile] = useState(null);
@@ -11,103 +11,165 @@ function PredictPage() {
   const [progress, setProgress] = useState(0);
 
   const navigate = useNavigate();
-  const scanSectionRef = useRef(null);
 
   const handleScan = async () => {
     if (!file) return alert("Please upload a fingerprint image");
 
     setLoading(true);
     setProgress(0);
-    setStatus("Preparing image...");
 
-    // --------- Animate progress while waiting ---------
-    const interval = setInterval(() => {
-      setProgress(prev => {
-        if (prev < 90) return prev + 1; // move slowly to 90%
-        return prev;
+    const steps = [
+      "Resizing image...",
+      "Converting to grayscale...",
+      "Normalizing pixel values...",
+      "Preparing input tensor..."
+    ];
+
+    let stepIndex = 0;
+
+    const formData = new FormData();
+    formData.append("image", file);
+
+    const apiRequest = axios.post(
+      "http://localhost:5000/predict",
+      formData,
+      { headers: { "Content-Type": "multipart/form-data" } }
+    );
+
+    const animateSteps = () =>
+      new Promise((resolve) => {
+        const interval = setInterval(() => {
+          if (stepIndex < steps.length) {
+            setStatus(steps[stepIndex]);
+            setProgress(((stepIndex + 1) / steps.length) * 90);
+            stepIndex++;
+          } else {
+            clearInterval(interval);
+            resolve();
+          }
+        }, 700);
       });
-    }, 100);
 
     try {
-      const formData = new FormData();
-      formData.append("image", file);
+      const [res] = await Promise.all([apiRequest, animateSteps()]);
 
-      setStatus("Running Deep Analysis...");
-
-      const res = await axios.post("http://localhost:5000/predict", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-        timeout: 0
-      });
-
-      // --------- Backend finished ---------
-      clearInterval(interval);
+      setStatus("Prediction Complete");
       setProgress(100);
-      setStatus("Analysis complete!");
 
-      // Small delay for smooth UX
-      await new Promise(r => setTimeout(r, 300));
-
-      navigate("/result", {
-        state: {
-          bloodGroup: res.data.blood_group,
-          confidence: res.data.confidence,
-          logId: res.data.log_id   // ✅ THIS IS THE MISSING PART
-        }
-      });
-
+      setTimeout(() => {
+        navigate("/result", {
+          state: {
+            bloodGroup: res.data.blood_group,
+            confidence: res.data.confidence,
+            logId: res.data.log_id,
+          },
+        });
+      }, 800);
 
     } catch (err) {
-      console.error(err);
-      clearInterval(interval);
+      setStatus("Prediction failed");
       setProgress(0);
-      setStatus("Analysis failed!");
-      alert("Analysis timed out or failed. Check if Python server is running.");
+      alert("Prediction failed. Make sure backend is running.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="page" ref={scanSectionRef}>
-      <div className="card">
-        <h2 className="title">Fingerprint Deep Scan</h2>
+    <div className="result-page">
 
-        {/* Preview */}
-        <div className={`preview-box ${loading ? "scanning" : ""}`}>
-          {preview ? <img src={preview} alt="Preview" /> : <div className="placeholder">Upload Image</div>}
-          {loading && <div className="scan-line"></div>}
+      {/* HERO SECTION */}
+      <section className="result-hero">
+        <h1>Fingerprint Analysis</h1>
+        <p>Upload a fingerprint image to analyze and predict the blood group.</p>
+      </section>
+
+      {/* MAIN CARD */}
+      <section className="result-card">
+
+
+        {/* Image Preview */}
+        <div style={{ margin: "20px 0" }}>
+          {preview ? (
+            <img
+              src={preview}
+              alt="Preview"
+              style={{
+                width: "250px",
+                borderRadius: "12px",
+                boxShadow: "0px 4px 15px rgba(0,0,0,0.15)"
+              }}
+            />
+          ) : (
+            <p style={{ color: "#666" }}>No Image Selected</p>
+          )}
         </div>
 
-        {/* Progress Bar */}
+        {/* Progress Section */}
         {loading && (
-          <div className="progress-container">
-            <div className="progress-bar" style={{ width: `${progress}%` }}></div>
-            <p className="progress-text">{status} ({Math.round(progress)}%)</p>
+          <div style={{ marginTop: "20px" }}>
+            <div
+              style={{
+                width: "100%",
+                height: "8px",
+                background: "#eee",
+                borderRadius: "10px",
+                overflow: "hidden",
+                marginBottom: "8px"
+              }}
+            >
+              <div
+                style={{
+                  width: `${progress}%`,
+                  height: "100%",
+                  background: "linear-gradient(135deg, #1a237e, #b71c1c)",
+                  transition: "width 0.4s ease"
+                }}
+              ></div>
+            </div>
+
+            <p style={{ fontSize: "14px", color: "#555" }}>
+              {status}
+            </p>
           </div>
         )}
 
-        {/* File Input */}
+        {/* Hidden File Input */}
         <input
           type="file"
           hidden
           id="file-input"
+          accept="image/*"
           onChange={(e) => {
-            setFile(e.target.files[0]);
-            setPreview(URL.createObjectURL(e.target.files[0]));
+            const selectedFile = e.target.files[0];
+            if (!selectedFile) return;
+            setFile(selectedFile);
+            setPreview(URL.createObjectURL(selectedFile));
           }}
         />
 
         {/* Buttons */}
-        {!loading && (
-          <button className="upload-btn" onClick={() => document.getElementById("file-input").click()}>
+        <div className="result-actions" style={{ marginTop: "25px" }}>
+          <button
+            className="btn-outline"
+            onClick={() =>
+              document.getElementById("file-input").click()
+            }
+            disabled={loading}
+          >
             Choose Image
           </button>
-        )}
 
-        <button className="scan-btn" onClick={handleScan} disabled={loading}>
-          {loading ? "Analyzing Deep Patterns..." : "Start Accurate Prediction"}
-        </button>
-      </div>
+          <button
+            className="btn-solid"
+            onClick={handleScan}
+            disabled={loading}
+          >
+            {loading ? "Processing..." : "Start Prediction"}
+          </button>
+        </div>
+
+      </section>
     </div>
   );
 }

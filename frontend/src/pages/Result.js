@@ -13,6 +13,10 @@ function Result({ user }) {
   const [selectedGroup, setSelectedGroup] = useState("");
   const [loadingScan, setLoadingScan] = useState(false);
 
+  // 🔥 NEW STATES FOR PREPROCESSING DISPLAY
+  const [scanStatus, setScanStatus] = useState("");
+  const [scanProgress, setScanProgress] = useState(0);
+
   const isAdmin = user?.role === "admin";
 
   const handleFeedback = async (actualLabel) => {
@@ -32,22 +36,54 @@ function Result({ user }) {
     }
   };
 
+  // ✅ UPDATED QUICK SCAN WITH PREPROCESSING STEPS
   const handleQuickScan = async () => {
     try {
       setLoadingScan(true);
+      setScanProgress(0);
 
-      const res = await API.post("/predict-scan");
+      const steps = [
+        "Resizing image...",
+        "Converting to grayscale...",
+        "Normalizing pixel values...",
+        "Preparing input tensor..."
+      ];
 
-      setResult({
-        bloodGroup: res.data.blood_group,
-        confidence: res.data.confidence,
-        logId: res.data.log_id,
-        gradcamImage: res.data.gradcam_image   // ✅ ADD THIS
-      });
+      let stepIndex = 0;
 
-      setFeedbackSent(false);
-      setShowCorrection(false);
-      setSelectedGroup("");
+      const apiRequest = API.post("/predict-scan");
+
+      const animateSteps = () =>
+        new Promise((resolve) => {
+          const interval = setInterval(() => {
+            if (stepIndex < steps.length) {
+              setScanStatus(steps[stepIndex]);
+              setScanProgress(((stepIndex + 1) / steps.length) * 90);
+              stepIndex++;
+            } else {
+              clearInterval(interval);
+              resolve();
+            }
+          }, 700);
+        });
+
+      const [res] = await Promise.all([apiRequest, animateSteps()]);
+
+      setScanStatus("Prediction Complete");
+      setScanProgress(100);
+
+      setTimeout(() => {
+        setResult({
+          bloodGroup: res.data.blood_group,
+          confidence: res.data.confidence,
+          logId: res.data.log_id,
+          gradcamImage: res.data.gradcam_image
+        });
+
+        setFeedbackSent(false);
+        setShowCorrection(false);
+        setSelectedGroup("");
+      }, 600);
 
     } catch {
       alert("No scanned fingerprint found.");
@@ -63,6 +99,7 @@ function Result({ user }) {
       </section>
 
       <section className="result-card">
+
         <h2>
           Detected Blood Group:{" "}
           <span className="blood-group">
@@ -79,6 +116,35 @@ function Result({ user }) {
             %
           </b>
         </p>
+
+        {/* 🔥 PREPROCESSING DISPLAY FOR QUICK SCAN */}
+        {loadingScan && (
+          <div style={{ marginTop: "20px" }}>
+            <div
+              style={{
+                width: "100%",
+                height: "8px",
+                background: "#eee",
+                borderRadius: "10px",
+                overflow: "hidden",
+                marginBottom: "8px"
+              }}
+            >
+              <div
+                style={{
+                  width: `${scanProgress}%`,
+                  height: "100%",
+                  background: "linear-gradient(135deg, #1a237e, #b71c1c)",
+                  transition: "width 0.4s ease"
+                }}
+              ></div>
+            </div>
+
+            <p style={{ fontSize: "14px", color: "#555" }}>
+              {scanStatus}
+            </p>
+          </div>
+        )}
 
         {/* 🔥 Grad-CAM Section */}
         {(result.gradcamImage || result.gradcam_image) && (
@@ -184,6 +250,7 @@ function Result({ user }) {
             Go Home
           </Link>
         </div>
+
       </section>
     </div>
   );
