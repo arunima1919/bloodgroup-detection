@@ -1,42 +1,17 @@
-// import axios from "axios";
-// import { useState } from "react";
-
-// function AdminLogin() {
-//   const [email, setEmail] = useState("");
-//   const [password, setPassword] = useState("");
-
-//   const login = async () => {
-//     await axios.post("http://localhost:5000/admin/login", {
-//       email,
-//       password
-//     }, { withCredentials: true });
-
-//     window.location.href = "/admin/dashboard";
-//   };
-
-//   return (
-//     <div>
-//       <h2>Admin Login</h2>
-//       <input placeholder="Email" onChange={e => setEmail(e.target.value)} />
-//       <input type="password" placeholder="Password" onChange={e => setPassword(e.target.value)} />
-//       <button onClick={login}>Login</button>
-//     </div>
-//   );
-// }
-
-// export default AdminLogin;
 
 
 
 
 import axios from "axios";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import "./AdminLogin.css";
 
 function AdminLogin() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const navigate = useNavigate();
 
   const login = async () => {
     try {
@@ -47,14 +22,7 @@ function AdminLogin() {
       );
 
       if (res.status === 200) {
-
-        localStorage.setItem("isAdmin", "true");
-        window.location.href = "/";
-
-
-
-
-        // window.location.href = "/admin/dashboard";
+        navigate("/admin/home");  // ✅ correct way
       }
     } catch (err) {
       setError("Invalid email or password");

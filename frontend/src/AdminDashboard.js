@@ -1,123 +1,130 @@
-// import axios from "axios";
-// import { useEffect, useState } from "react";
-
-// function AdminDashboard() {
-//   const [data, setData] = useState([]);
-
-//   useEffect(() => {
-//     axios.get("http://localhost:5000/admin/fingerprints", {
-//       withCredentials: true
-//     }).then(res => setData(res.data));
-//   }, []);
-
-//   const verify = (id) => {
-//     const actual = prompt("Enter Correct Blood Group:");
-//     axios.post(`http://localhost:5000/admin/verify/${id}`, {
-//       actual_blood: actual
-//     }, { withCredentials: true })
-//     .then(() => window.location.reload());
-//   };
-
-//   return (
-//     <div>
-//       <h2>Admin Dashboard</h2>
-//       {data.map(item => (
-//         <div key={item.id}>
-//           <p>ID: {item.id}</p>
-//           <p>Predicted: {item.predicted_blood}</p>
-//           <p>Verified: {item.is_verified ? "Yes" : "No"}</p>
-//           {!item.is_verified && (
-//             <button onClick={() => verify(item.id)}>Verify</button>
-//           )}
-//           <hr />
-//         </div>
-//       ))}
-//     </div>
-//   );
-// }
-
-// export default AdminDashboard;
-
-
-import axios from "axios";
 import { useEffect, useState } from "react";
-import "./AdminDashboard.css";
+import axios from "axios";
 
 function AdminDashboard() {
-  const [data, setData] = useState([]);
 
-  useEffect(() => {
-    axios
-      .get("http://localhost:5000/admin/fingerprints", {
-        withCredentials: true,
-      })
-      .then((res) => setData(res.data))
-      .catch(() => alert("Unauthorized or Session Expired"));
-  }, []);
+const [data,setData] = useState([]);
 
-  const verify = async (id) => {
-    const actual = prompt("Enter Correct Blood Group:");
-    if (!actual) return;
+useEffect(()=>{
+ fetchFingerprints();
+},[])
 
-    await axios.post(
-      `http://localhost:5000/admin/verify/${id}`,
-      { actual_blood: actual },
-      { withCredentials: true }
-    );
+const fetchFingerprints = async () =>{
 
-    setData(
-      data.map((item) =>
-        item.id === id ? { ...item, is_verified: true } : item
-      )
-    );
-  };
+ try{
 
-  return (
-    <div className="dashboard-container">
-      <header className="dashboard-header">
-        <h2>Admin Dashboard</h2>
-      </header>
+ const res = await axios.get(
+ "http://localhost:5000/admin/fingerprints", {
+  withCredentials: true
+}
+ 
+);console.log(res.data);
 
-      <div className="dashboard-table">
-        <table>
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Predicted</th>
-              <th>Actual</th>
-              <th>Status</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.map((item) => (
-              <tr key={item.id}>
-                <td>{item.id}</td>
-                <td>{item.predicted_blood}</td>
-                <td>{item.actual_blood || "-"}</td>
-                <td>
-                  <span
-                    className={
-                      item.is_verified ? "status verified" : "status pending"
-                    }
-                  >
-                    {item.is_verified ? "Verified" : "Pending"}
-                  </span>
-                </td>
-                <td>
-                  {!item.is_verified && (
-                    <button onClick={() => verify(item.id)}>
-                      Verify
-                    </button>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
+ setData(res.data);
+
+ }catch(err){
+ console.error("Error fetching fingerprints",err);
+ }
+
+}
+
+const verify = async(id,blood)=>{
+
+ try{
+
+ await axios.post(
+ `http://localhost:5000/admin/verify/${id}`,
+ {actual_blood:blood}, {
+  withCredentials: true
+}
+ 
+);
+
+ fetchFingerprints();
+
+ }catch(err){
+ console.error(err);
+ }
+
+}
+
+return(
+
+<div style={{padding:"40px"}}>
+
+<h2>Admin Dashboard</h2>
+<table border="1" cellPadding="10">
+
+<thead>
+<tr>
+<th>ID</th>
+<th>Predicted</th>
+<th>Actual</th>
+<th>Status</th>
+<th>Uploaded By</th>
+<th>Date</th>
+<th>Action</th>
+</tr>
+</thead>
+
+<tbody>
+
+{data.map(row=>(
+
+<tr key={row.id}>
+
+<td>{row.id}</td>
+
+<td>{row.predicted_blood}</td>
+
+<td>{row.actual_blood || "-"}</td>
+
+<td>
+{row.is_verified ? "Verified" : "Pending"}
+</td>
+
+<td>{row.uploaded_by}</td>
+
+{/* <td>{row.created_at}</td> */}
+<td>{row.created_at}</td>
+<td>
+
+{row.is_verified ? (
+
+"Done"
+
+):( 
+
+<select onChange={(e)=>verify(row.id,e.target.value)}>
+
+<option>Select Blood</option>
+<option>A+</option>
+<option>A-</option>
+<option>B+</option>
+<option>B-</option>
+<option>AB+</option>
+<option>AB-</option>
+<option>O+</option>
+<option>O-</option>
+
+</select>
+
+)}
+
+</td>
+
+</tr>
+
+))}
+
+</tbody>
+
+</table>
+
+</div>
+
+)
+
 }
 
 export default AdminDashboard;

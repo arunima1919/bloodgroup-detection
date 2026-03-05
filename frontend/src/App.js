@@ -1,84 +1,63 @@
-// import React, { useState } from 'react';
-// import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-// import Navbar from './components/Navbar';
-// import HomePage from './pages/HomePage';
-// import LoginPage from './pages/LoginPage';
-// import PredictPage from './pages/PredictPage';
-// import Result from "./pages/Result";
-// import './App.css';
-// import Signup from './pages/SignupPage';
-
-// function App() {
-//   const [user, setUser] = useState(null);
-
-//   return (
-//     <Router>
-//       <Navbar user={user} setUser={setUser} />
-
-//       <Routes>
-//         <Route path="/" element={<HomePage />} />
-//         <Route path="/login" element={<LoginPage setUser={setUser} />} />
-//         <Route path="/predict" element={<PredictPage />} />
-//         <Route path="/result" element={<Result />} />
-//         <Route path="/signup" element={<Signup />} />
-//       </Routes>
-//     </Router>
-//   );
-// }
-
-// export default App;
-
-// import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-// import UserPage from "./UserPage";
-// import AdminLogin from "./AdminLogin";
-// import AdminDashboard from "./AdminDashboard";
-
-// function App() {
-//   return (
-//     <Router>
-//       <Routes>
-//         {/* USER SIDE */}
-//         <Route path="/*" element={<UserPage />} />
-
-//         {/* ADMIN SIDE */}
-//         <Route path="/admin" element={<AdminLogin />} />
-//         <Route path="/admin/dashboard" element={<AdminDashboard />} />
-//       </Routes>
-//     </Router>
-//   );
-// }
-
-// export default App;
-
-
-
-
-
 
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import UserPage from "./UserPage";
-import AdminLogin from "./AdminLogin";
-import AdminDashboard from "./AdminDashboard";
+import AdminRoute from "./AdminRoute";
 import Navbar from "./Navbar";
 import About from "./About";
 
+import UserSignup from "./UserSignup";
+import UserLogin from "./UserLogin";
+import UserDashboard from "./UserDashboard";
+import BloodInfo from "./pages/BloodInfo";
+import AdminLogin from "./AdminLogin";
+import AdminDashboard from "./AdminDashboard";
+import AdminResults from "./pages/AdminResults";
+import ProtectedRoute from "./ProtectedRoute";
+import PredictPage from "./pages/PredictPage";
+import Result from "./pages/Result";
+import axios from "axios";
+
+axios.defaults.withCredentials = true;
 
 function App() {
   return (
     <Router>
-      <Navbar />   {/* 👈 Navbar visible everywhere */}
+      <Navbar />
 
       <Routes>
-        {/* USER SIDE */}
-        <Route path="/*" element={<UserPage />} />
+        
+        {/* HOME */}
+        <Route path="/" element={<PredictPage />} />
         <Route path="/about" element={<About />} />
+        <Route path="/admin/about" element={<About />} />
+        <Route path="/result" element={<Result />} />
+  {/* ADMIN ROOT ROUTE */}
+  <Route path="/admin" element={<AdminRoute />} />
+        {/* USER */}
+        <Route path="/user/signup" element={<UserSignup />} />
+        <Route path="/user/login" element={<UserLogin />} />
+        <Route path="/user/dashboard" element={<UserDashboard />} />
+<Route path="/admin/result" element={<Result />} />
+<Route path="/admin/results" element={<AdminResults />} />
+<Route path="/blood-info" element={<BloodInfo />} />
+        {/* ADMIN */}
+        <Route path="/admin/login" element={<AdminLogin />} />
+        <Route
+  path="/admin/home"
+  element={
+    <ProtectedRoute>
+      <PredictPage isAdminPage={true} />
+    </ProtectedRoute>
+  }
+/>
+        <Route
+          path="/admin/dashboard"
+          element={
+            <ProtectedRoute>
+              <AdminDashboard />
+            </ProtectedRoute>
+          }
+        />
 
-
-        {/* ADMIN LOGIN */}
-        <Route path="/admin" element={<AdminLogin />} />
-
-        {/* ADMIN DASHBOARD */}
-        <Route path="/admin/dashboard" element={<AdminDashboard />} />
       </Routes>
     </Router>
   );

@@ -1,41 +1,3 @@
-/* .navbar {
-  height: 70px;
-  background: #0f172a;
-  color: white;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0 40px;
-  font-family: "Segoe UI", sans-serif;
-}
-
-.logo {
-  font-size: 20px;
-  font-weight: bold;
-}
-
-.nav-links a {
-  color: white;
-  margin-right: 20px;
-  text-decoration: none;
-  transition: 0.3s;
-}
-
-.nav-links a:hover {
-  color: #38bdf8;
-}
-
-.logout-btn {
-  padding: 6px 14px;
-  background: #ef4444;
-  border: none;
-  border-radius: 6px;
-  color: white;
-  cursor: pointer;
-} */
-
-
-
 
 
 
@@ -47,15 +9,12 @@
 
 /* NAVBAR CONTAINER */
 .navbar {
+  height: 40px;              /* Fixed navbar height */
   display: flex;
+  align-items: center;       /* Vertically center content */
   justify-content: space-between;
-  align-items: center;
-  padding: 18px 60px;
-  background: #ffffff;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
-  position: sticky;
-  top: 0;
-  z-index: 1000;
+  padding: 0 40px;
+  background-color: #cf6363;
 }
 
 /* LOGO TEXT */
@@ -77,6 +36,8 @@
   display: flex;
   align-items: center;
   gap: 30px;
+  margin-left: auto;
+  color: #efedec;
 }
 
 /* NAV LINKS */
@@ -84,7 +45,7 @@
   text-decoration: none;
   font-size: 15px;
   font-weight: 600;
-  color: #333;
+  color: #fbf9f9;
   transition: all 0.3s ease;
   position: relative;
 }
@@ -97,12 +58,12 @@
   bottom: -5px;
   width: 0%;
   height: 2px;
-  background: #501606;
+  background: #efedec;
   transition: 0.3s ease;
 }
 
 .nav-links a:hover {
-  color: #501606;
+  color: #f5f1f0;
 }
 
 .nav-links a:hover::after {
@@ -144,4 +105,25 @@
   .nav-links a {
     font-size: 14px;
   }
+}
+
+
+
+
+
+/* Brand section */
+.nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.nav-logo {
+  height: 230px;      /* Bigger logo */
+  width: 230px;       /* Keep aspect ratio */
+  object-fit: contain;
+}
+
+.brand-text {
+  font-size: 20px;
+  font-weight: 600;
 }

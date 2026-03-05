@@ -1,0 +1,238 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* =========================
+   Background Wrapper
+========================= */
+
+.login-wrapper {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  justify-content: flex-end;   /* 🔥 move to right */
+  align-items: center;         /* keep vertically centered */
+  padding-right: 80px;         /* give space from right edge */
+  overflow: hidden;
+}
+
+
+.login-wrapper::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: 
+    linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)),
+    url("../public/fingerprint.png");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  z-index: -1;
+}
+.login-card {
+  position: relative;
+  z-index: 1;
+  background: rgb(249, 249, 250);
+  padding: 40px;
+  border-radius: 12px;
+  width: 500px;
+}
+/* =========================
+   Card Container
+========================= */
+
+.login-card:hover {
+  transform: translateY(-3px);
+}
+
+/* =========================
+   Logo Section
+========================= */
+.logo-section {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 10px;
+}
+
+.logo-icon img {
+  width: 70px;
+  height: 70px;
+  object-fit: contain;
+}
+
+
+
+.logo-icon img {
+  width: 130px;
+  height: 130px;
+  object-fit: contain;
+}
+
+
+/* =========================
+   Headings
+========================= */
+.login-card h3 {
+  font-size: 24px;
+  margin-bottom: 5px;
+}
+
+.subtitle {
+  color: #777;
+  font-size: 14px;
+  margin-bottom: 25px;
+}
+
+/* =========================
+   Form Labels
+========================= */
+label {
+  display: block;
+  text-align: left;
+  font-size: 14px;
+  margin-bottom: 6px;
+  margin-top: 12px;
+  font-weight: 500;
+}
+
+/* =========================
+   Inputs
+========================= */
+input {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid #ddd;
+  outline: none;
+  font-size: 14px;
+  transition: 0.3s ease;
+  margin-bottom: 5px;
+}
+
+input:focus {
+  border-color: #00b894;
+  box-shadow: 0 0 0 2px rgba(0, 184, 148, 0.1);
+}
+
+/* =========================
+   Password Field
+========================= */
+.password-field {
+  position: relative;
+}
+
+.password-field input {
+  padding-right: 10px;
+}
+
+.toggle {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: pointer;
+  font-size: 14px;
+}
+
+/* =========================
+   Buttons
+========================= */
+button {
+  width: 100%;
+  margin-top: 20px;
+  padding: 13px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(to right, #1e88e5, #00b894);
+  color: white;
+  font-weight: 600;
+  font-size: 15px;
+  cursor: pointer;
+  transition: 0.3s ease;
+}
+
+button:hover {background-color: #a98775;
+  transform: translateY(-3px);
+  box-shadow: 0 10px 25px rgba(19, 23, 25, 0.4);
+}
+
+button:disabled {
+  background: #aaa;
+  cursor: not-allowed;
+}
+
+/* =========================
+   Bottom Links
+========================= */
+.bottom-text {
+  margin-top: 20px;
+  font-size: 14px;
+  color: #555;
+}
+
+.bottom-text a {
+  color: #e53935;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.bottom-text a:hover {
+  text-decoration: underline;
+}
+
+.back-link {
+  display: block;
+  margin-top: 15px;
+  font-size: 14px;
+  color: #777;
+  text-decoration: none;
+}
+
+.back-link:hover {
+  color: #000;
+}
+
+/* =========================
+   Responsive
+========================= */
+@media (max-width: 480px) {
+  .login-card {
+    width: 100%;
+    padding: 30px 20px;
+  }
+}
+/* Make all inputs consistent */
+.auth-card input {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+  font-size: 14px;
+  box-sizing: border-box;   /* 🔥 IMPORTANT FIX */
+}

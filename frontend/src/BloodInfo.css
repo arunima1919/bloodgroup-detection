@@ -1,0 +1,131 @@
+/* PAGE */
+
+.blood-page{
+  min-height:100vh;
+  background:linear-gradient(135deg,#fdfdfd,#f5f7fb);
+  padding:60px 20px;
+  text-align:center;
+}
+
+/* HERO */
+
+.blood-hero{
+  margin-bottom:50px;
+}
+
+.blood-circle{
+  width:120px;
+  height:120px;
+  border-radius:50%;
+  background:#b71c1c;
+  color:white;
+  font-size:40px;
+  font-weight:bold;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  margin:auto;
+  box-shadow:0 6px 20px rgba(0,0,0,0.2);
+}
+
+/* MAIN CARD */
+
+.blood-card{
+  max-width:850px;
+  margin:auto;
+  background:white;
+  padding:40px;
+  border-radius:14px;
+  box-shadow:0 10px 30px rgba(0,0,0,0.08);
+}
+
+.about-text{
+  margin-top:15px;
+  margin-bottom:30px;
+  color:#555;
+  line-height:1.6;
+}
+
+/* GRID */
+
+.compatibility-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:25px;
+}
+
+/* BOX */
+
+.compatibility-box{
+  padding:20px;
+  border-radius:10px;
+  background:#fafafa;
+}
+
+.donate{
+  border-left:6px solid #c62828;
+}
+
+.receive{
+  border-left:6px solid #1565c0;
+}
+
+/* TAGS */
+
+.blood-tags{
+  margin-top:15px;
+}
+
+.tag{
+  display:inline-block;
+  margin:6px;
+  padding:8px 14px;
+  border-radius:20px;
+  font-weight:bold;
+  font-size:14px;
+}
+
+.donate-tag{
+  background:#ffebee;
+  color:#b71c1c;
+}
+
+.receive-tag{
+  background:#e3f2fd;
+  color:#0d47a1;
+}
+
+/* TYPE BOX */
+
+.type-box{
+  margin-top:30px;
+  padding:20px;
+  background:#f8f9fa;
+  border-radius:10px;
+}
+
+/* BUTTON */
+
+.back-home{
+  display:inline-block;
+  margin-top:25px;
+  padding:12px 20px;
+  background:#8b0000;
+  color:white;
+  border-radius:8px;
+  text-decoration:none;
+}
+
+.back-home:hover{
+  background:#a40000;
+}
+
+/* RESPONSIVE */
+
+@media(max-width:700px){
+
+  .compatibility-grid{
+    grid-template-columns:1fr;
+  }
+
+}

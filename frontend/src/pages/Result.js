@@ -3,7 +3,9 @@ import "../Result.css";
 
 function Result() {
   const location = useLocation();
-  const { bloodGroup, confidence } = location.state || {};
+  // const { bloodGroup, confidence } = location.state || {};
+  // const { bloodGroup, confidence, logId, gradcamImage } = location.state || {};
+  const { bloodGroup, confidence, logId, gradcamImage, isAdmin } = location.state || {};
 
   return (
     <>
@@ -30,6 +32,12 @@ function Result() {
             <span className="confidence">
               Prediction Confidence: <b>{confidence || "N/A"}</b>
             </span>
+            {isAdmin && (
+  <p className="log-id">
+    <b>Log ID:</b> {logId}
+  </p>
+)}
+           
           </div>
 
           <p className="result-note">
@@ -48,6 +56,16 @@ function Result() {
             </Link>
           </div>
         </section>
+        {gradcamImage && (
+  <div style={{marginTop:"20px"}}>
+    <h3>Grad-CAM Visualization</h3>
+    <img
+      src={`data:image/png;base64,${gradcamImage}`}
+      alt="GradCAM"
+      style={{width:"300px", borderRadius:"10px"}}
+    />
+  </div>
+)}
 
         {/* Info Section */}
         <section className="result-info">
@@ -59,6 +77,17 @@ function Result() {
             detection.
           </p>
         </section>
+        {!isAdmin && bloodGroup && (
+
+<Link
+to="/blood-info"
+state={{ bloodGroup }}
+className="btn-info"
+>
+🧬 Learn About Your Blood Group
+</Link>
+
+)}
 
         {/* Footer */}
         <footer className="result-footer">
