@@ -1,0 +1,61 @@
+.history-page{
+  padding:40px;
+}
+
+.history-title{
+  text-align:center;
+  margin-bottom:30px;
+  color:#1a237e;
+}
+
+/* Toggle switch container */
+
+.history-toggle{
+  display:flex;
+  width:320px;
+  margin:0 auto 30px;
+  background:#eee;
+  border-radius:30px;
+  overflow:hidden;
+  box-shadow:0 4px 10px rgba(0,0,0,0.1);
+}
+
+/* buttons */
+
+.toggle-btn{
+  flex:1;
+  text-align:center;
+  padding:10px 0;
+  cursor:pointer;
+  font-weight:600;
+  transition:all 0.3s ease;
+}
+
+/* active state */
+
+.toggle-btn.active{
+  background:linear-gradient(135deg,#1a237e,#b71c1c);
+  color:white;
+}
+
+/* table */
+
+.history-table{
+  max-width:1000px;
+  margin:auto;
+}
+
+table{
+  width:100%;
+  border-collapse:collapse;
+}
+
+th,td{
+  padding:10px;
+  border:1px solid #ddd;
+  text-align:center;
+}
+
+th{
+  background:#f5f6ff;
+}

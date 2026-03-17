@@ -14,20 +14,34 @@ from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timedelta
 from werkzeug.utils import secure_filename
 from gradcam_utils import generate_gradcam
-
+from skimage.morphology import skeletonize
+from skimage.feature import corner_harris, corner_peaks
+from skimage.morphology import skeletonize
+import keras
 # ---------------- CONFIG ----------------
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads")
 PROJECT_ROOT = os.path.dirname(BASE_DIR)
 
-MODEL_PATH = os.path.join(PROJECT_ROOT, "models", "retrained_fingerprint_v2.keras")
+MODEL_PATH = os.path.join(PROJECT_ROOT, "models", "best_original1_cnn.keras")
 CLASS_PATH = os.path.join(PROJECT_ROOT, "models", "classes.txt")
-
-IMG_SIZE = 64  # must match your training dataset
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
+# ---------------- PATTERN MODEL ----------------
+PATTERN_MODEL_PATH = os.path.join(PROJECT_ROOT, "models", "pattern_model.keras")
+
+try:
+    pattern_model = keras.models.load_model(PATTERN_MODEL_PATH, compile=False)
+    print("Pattern model loaded successfully")
+except Exception as e:
+    print("Pattern model loading failed:", e)
+    pattern_model = None
+
+pattern_classes = ["Arch", "Loop", "Whorl"]
+
+
 # ---------------- FLASK SETUP ----------------
-app = Flask(__name__)
+app = Flask(__name__, static_folder='static')
 bcrypt = Bcrypt(app)
 app.secret_key = "supersecretkey"
 
@@ -49,7 +63,7 @@ class PredictionLog(db.Model):
     actual_label = db.Column(db.String(50), nullable=True)
     is_correct = db.Column(db.Boolean, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
 
 class User(db.Model):
     __tablename__ = "users"
@@ -65,12 +79,13 @@ class User(db.Model):
 
 
 # ---------------- LOAD MODEL & CLASS NAMES ----------------
-try:
-    model = tf.keras.models.load_model(MODEL_PATH)
-    print("Model loaded successfully.")
-except Exception as e:
-    print("Error loading model:", e)
-    model = None
+
+
+best_original_model = keras.models.load_model(
+    MODEL_PATH,
+    compile=False
+)
+
 
 try:
     with open(CLASS_PATH, "r") as f:
@@ -221,142 +236,268 @@ def login():
             "role": user.role
         }
     })
+IMG_SIZE = 64
 
-# ---------------- PREDICTION ----------------
+def preprocess_fingerprint(img_bgr):
+
+    # 1. Convert to grayscale
+    gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
+
+     # 2. CLAHE enhancement
+    clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
+    enhanced = clahe.apply(gray)
+    # 2. Resize to model input size (64x64)
+    resized = cv2.resize(enhanced, (64, 64))
+
+    # 3. Normalize
+    normalized = resized.astype("float32") / 255.0
+
+    # 4. Add channel dimension
+    normalized = np.expand_dims(normalized, axis=-1)
+
+    return normalized, resized
+
+
 @app.route("/predict", methods=["POST"])
 def predict():
+
+    if "user_id" not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+
     if "image" not in request.files:
         return jsonify({"error": "No image provided"}), 400
 
     try:
+
         file = request.files["image"]
 
-        # ✅ Create unique filename
         filename = datetime.now().strftime("%Y%m%d_%H%M%S") + ".BMP"
+
         file_path = os.path.join(UPLOAD_FOLDER, filename)
+
         file.save(file_path)
 
-        # --------------- Preprocess (Aligned with Retraining) ----------------
-        
-        # 1. Read image in Color (to match tf.image.rgb_to_grayscale behavior)
         img_bgr = cv2.imread(file_path)
+
         if img_bgr is None:
-            raise ValueError("Invalid image file")
+            return jsonify({"error": "Invalid image"}), 400
 
-        # 2. Resize to match training (64x64)
-        img_resized = cv2.resize(img_bgr, (IMG_SIZE, IMG_SIZE))
+        orig_h, orig_w = img_bgr.shape[:2]
 
-        # 3. Convert to Grayscale (Standard RGB -> Gray weights)
-        img_gray = cv2.cvtColor(img_resized, cv2.COLOR_BGR2GRAY)
+        # -------- Blood Model Preprocessing --------
 
-        # 4. Normalize (0.0 to 1.0)
-        # REMOVED: img_equalized = cv2.equalizeHist(img_resized) 
-        img_normalized = img_gray.astype("float32") / 255.0
+        img_norm, resized = preprocess_fingerprint(img_bgr)
 
-        # 5. Add dimensions: (Batch, Height, Width, Channels) -> (1, 64, 64, 1)
-        img_input = np.expand_dims(img_normalized, axis=(0, -1))
+        img_input = np.expand_dims(img_norm, axis=0)
 
-        # --------------- Prediction ----------------
-        preds = model.predict(img_input)
+        preds = best_original_model.predict(img_input)
+
         class_index = int(np.argmax(preds[0]))
-        confidence = float(np.max(preds[0]))
-        
-        # class_names should be the updated list from your classes.txt
+
         predicted_identity = class_names[class_index]
 
-        # --------------- Save Log ----------------
+        confidence = float(np.max(preds[0]))
+
+        #---pattern recognition
+# -------- Pattern Detection --------
+        pattern_label = None
+        try:
+            pattern_img = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
+            pattern_img = cv2.resize(pattern_img, (128, 128))
+            pattern_img = pattern_img.astype("float32") / 255.0
+            pattern_img = np.expand_dims(pattern_img, axis=-1)
+            pattern_img = np.expand_dims(pattern_img, axis=0)
+
+            pattern_preds = pattern_model.predict(pattern_img)
+            pattern_index = int(np.argmax(pattern_preds[0]))
+            pattern_label = pattern_classes[pattern_index]
+
+        except Exception as e:
+            print("Pattern detection error:", e)        
+        # -------- GradCAM --------
+
+        gradcam_url = None
+
+        try:
+
+            heatmap = generate_gradcam(
+                img_input,
+                best_original_model,
+                None
+            )
+
+            heatmap = cv2.resize(heatmap, (orig_w, orig_h))
+
+            heatmap = np.uint8(255 * heatmap)
+
+            heatmap_color = cv2.applyColorMap(
+                heatmap,
+                cv2.COLORMAP_JET
+            )
+
+            gradcam_img = cv2.addWeighted(
+                img_bgr,
+                0.6,
+                heatmap_color,
+                0.4,
+                0
+            )
+
+            gradcam_filename = "gc_" + filename
+
+            gradcam_save_path = os.path.join(
+                BASE_DIR,
+                "static",
+                "gradcam",
+                gradcam_filename
+            )
+
+            cv2.imwrite(gradcam_save_path, gradcam_img)
+
+            gradcam_url = f"/static/gradcam/{gradcam_filename}"
+
+        except Exception as e:
+            print("GradCAM error:", e)
+
+        # -------- Save Log --------
+
         log = PredictionLog(
+            user_id=session["user_id"],
             image_name=filename,
             prediction=predicted_identity,
             confidence=confidence
         )
+
         db.session.add(log)
         db.session.commit()
-
-        # Clean up memory
-        del img_input
-        gc.collect()
-
-        return jsonify({
-            "blood_group": predicted_identity, # Keeping key name 'blood_group' for frontend compatibility
-            "confidence": confidence,
-            "gradcam_image": None,
-            "log_id": log.id
-        })
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
-# ---------------- PREDICT SCAN ----------------
-@app.route("/predict-scan", methods=["POST"])
-def predict_scan():
-    if session.get("role") != "admin":
-        return jsonify({"error": "Unauthorized"}), 403
-
-    try:
-        # Path of scanned image
-        sample_path = os.path.join(PROJECT_ROOT, "sample_input", "a.BMP")
-
-        if not os.path.exists(sample_path):
-            return jsonify({"error": "Scanned file not found"}), 400
-
-        # ✅ Create unique filename for saving
-        filename = datetime.now().strftime("%Y%m%d_%H%M%S") + ".BMP"
-        file_path = os.path.join(UPLOAD_FOLDER, filename)
-
-        # Copy scanned file to uploads
-        shutil.copy(sample_path, file_path)
-
-        # --------------- Preprocess (Same as /predict) ----------------
-        
-        # 1. Read image in Color
-        img_bgr = cv2.imread(file_path)
-        if img_bgr is None:
-            raise ValueError("Invalid scanned image file")
-
-        # 2. Resize to 64x64
-        img_resized = cv2.resize(img_bgr, (IMG_SIZE, IMG_SIZE))
-
-        # 3. Convert to Grayscale
-        img_gray = cv2.cvtColor(img_resized, cv2.COLOR_BGR2GRAY)
-
-        # 4. Normalize (0 to 1)
-        img_normalized = img_gray.astype("float32") / 255.0
-
-        # 5. Expand dimensions (1, 64, 64, 1)
-        img_input = np.expand_dims(img_normalized, axis=(0, -1))
-
-        # --------------- Prediction ----------------
-        preds = model.predict(img_input)
-        class_index = int(np.argmax(preds[0]))
-        confidence = float(np.max(preds[0]))
-        predicted_identity = class_names[class_index]
-
-        # --------------- Save Log ----------------
-        log = PredictionLog(
-            image_name=filename,
-            prediction=predicted_identity,
-            confidence=confidence
-        )
-        db.session.add(log)
-        db.session.commit()
-
-        # Clean memory
-        del img_input
-        gc.collect()
 
         return jsonify({
             "blood_group": predicted_identity,
             "confidence": confidence,
-            "gradcam_image": None,
+            "pattern": pattern_label,
+            "gradcam_image": gradcam_url,
             "log_id": log.id
         })
 
     except Exception as e:
+
+        db.session.rollback()
+
         return jsonify({"error": str(e)}), 500
+    
+@app.route("/predict-scan", methods=["POST"])
+def predict_scan():
+    print("🔥 HIT PREDICT SCAN")
+    print("SESSION DATA:", dict(session))
+    if session.get("role") != "admin":
+        return jsonify({"error": "Unauthorized"}), 403
 
+    try:
+        user_id = session.get("user_id")
 
+        # Load sample scan image
+        sample_path = os.path.join(PROJECT_ROOT, "sample_input", "a.BMP")
+        if not os.path.exists(sample_path):
+            return jsonify({"error": "Scanned file not found"}), 400
+
+        # Copy image to uploads folder with timestamp
+        filename = datetime.now().strftime("%Y%m%d_%H%M%S") + "_scan.BMP"
+        file_path = os.path.join(UPLOAD_FOLDER, filename)
+        shutil.copy(sample_path, file_path)
+
+        # Read image
+        img_bgr = cv2.imread(file_path)
+        if img_bgr is None:
+            return jsonify({"error": "Failed to read image"}), 400
+
+        orig_h, orig_w = img_bgr.shape[:2]
+
+        # Preprocess fingerprint
+        img_norm, resized = preprocess_fingerprint(img_bgr)
+
+        # Ensure shape matches model input (1,64,64,1)
+        img_input = np.expand_dims(img_norm, axis=0)
+
+        # -------- PREDICTION --------
+        preds = best_original_model.predict(img_input)
+        class_index = int(np.argmax(preds[0]))
+        predicted_identity = class_names[class_index]
+        confidence = float(np.max(preds[0]))
+
+        #--PATTERN RECOGNITION
+# -------- Pattern Detection --------
+        pattern_label = None
+        try:
+            pattern_img = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
+            pattern_img = cv2.resize(pattern_img, (128, 128))
+            pattern_img = pattern_img.astype("float32") / 255.0
+            pattern_img = np.expand_dims(pattern_img, axis=-1)
+            pattern_img = np.expand_dims(pattern_img, axis=0)
+
+            pattern_preds = pattern_model.predict(pattern_img)
+            pattern_index = int(np.argmax(pattern_preds[0]))
+            pattern_label = pattern_classes[pattern_index]
+
+        except Exception as e:
+            print("Pattern detection error:", e)
+
+        # -------- GRADCAM --------
+        gradcam_url = None
+        try:
+            # Find last convolutional layer automatically
+            last_conv_layer = None
+            for layer in reversed(best_original_model.layers):
+                if "conv" in layer.name:
+                    last_conv_layer = layer.name
+                    break
+
+            if last_conv_layer is None:
+                raise Exception("No convolutional layer found for GradCAM")
+
+            heatmap = generate_gradcam(img_input, best_original_model, layer_name=last_conv_layer)
+
+            if heatmap is not None:
+                # Resize to original image size
+                heatmap = cv2.resize(heatmap, (orig_w, orig_h))
+                heatmap = np.uint8(255 * heatmap)
+                heatmap_color = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
+                gradcam_img = cv2.addWeighted(img_bgr, 0.6, heatmap_color, 0.4, 0)
+
+                # Save GradCAM
+                gradcam_filename = "gc_" + filename
+                gradcam_save_path = os.path.join(BASE_DIR, "static", "gradcam", gradcam_filename)
+                os.makedirs(os.path.dirname(gradcam_save_path), exist_ok=True)
+                cv2.imwrite(gradcam_save_path, gradcam_img)
+                gradcam_url = f"/static/gradcam/{gradcam_filename}"
+
+        except Exception as e:
+            print("[GRADCAM ERROR]", e)
+
+        # -------- SAVE LOG --------
+        log = PredictionLog(
+            user_id=user_id,
+            image_name=filename,
+            prediction=predicted_identity,
+            confidence=confidence
+        )
+
+        db.session.add(log)
+        db.session.commit()
+
+        return jsonify({
+            "blood_group": predicted_identity,
+            "confidence": confidence,
+            "pattern": pattern_label,
+            "gradcam_image": gradcam_url,
+            "log_id": log.id
+        })
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+    
 # ---------------- ADMIN VIEW ----------------
 @app.route("/admin/predictions", methods=["GET"])
 def admin_view_predictions():
@@ -377,6 +518,57 @@ def admin_view_predictions():
         })
 
     return jsonify(result)
+
+@app.route("/admin/history", methods=["GET"])
+def admin_history():
+
+    if session.get("role") != "admin":
+        return jsonify({"error": "Unauthorized"}), 403
+
+    # Admin predictions
+    admin_logs = (
+        db.session.query(PredictionLog, User)
+        .join(User, PredictionLog.user_id == User.id)
+        .filter(User.role == "admin")
+        .order_by(PredictionLog.created_at.desc())
+        .all()
+    )
+
+    admin_data = []
+    for log, user in admin_logs:
+        admin_data.append({
+            "id": log.id,
+            "prediction": log.prediction,
+            "actual_label": log.actual_label,
+            "confidence": log.confidence,
+            "timestamp": log.created_at,
+        })
+
+    # User predictions
+    user_logs = (
+        db.session.query(PredictionLog, User)
+        .join(User, PredictionLog.user_id == User.id)
+        .filter(User.role == "user")
+        .order_by(PredictionLog.created_at.desc())
+        .all()
+    )
+
+    user_data = []
+    for log, user in user_logs:
+        user_data.append({
+            "id": log.id,
+            "username": user.name,
+            "email": user.email,
+            "prediction": log.prediction,
+            "actual_label": log.actual_label,
+            "confidence": log.confidence,
+            "timestamp": log.created_at,
+        })
+
+    return jsonify({
+        "admin_predictions": admin_data,
+        "user_predictions": user_data
+    })
 
 # ---------------- FEEDBACK ----------------
 @app.route("/feedback", methods=["POST"])

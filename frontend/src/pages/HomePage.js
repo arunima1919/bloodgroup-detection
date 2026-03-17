@@ -1,12 +1,44 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import { motion } from "framer-motion";
+import { Fingerprint } from "lucide-react";
+import "./HomePage.css";
 
 function HomePage() {
+
   const navigate = useNavigate();
 
+  const [role, setRole] = useState("");
+  const [loadingScan, setLoadingScan] = useState(false);
+  const [statusText, setStatusText] = useState("System Ready");
+
+  useEffect(() => {
+    const storedRole = (localStorage.getItem("role") || "").toLowerCase();
+    setRole(storedRole);
+  }, []);
+
+  const scanMessages = [
+    "Initializing Scanner...",
+    "Analyzing Ridge Patterns...",
+    "Extracting Features...",
+    "Predicting Blood Group..."
+  ];
+
   const handleQuickScan = async () => {
+
     try {
+
+      setLoadingScan(true);
+
+      let i = 0;
+
+      const textInterval = setInterval(() => {
+        setStatusText(scanMessages[i]);
+        i++;
+        if (i === scanMessages.length) clearInterval(textInterval);
+      }, 700);
+
       const res = await axios.post("http://localhost:5000/predict-scan");
 
       navigate("/result", {
@@ -18,176 +50,162 @@ function HomePage() {
       });
 
     } catch (err) {
+
       alert("No scanned fingerprint found. Please scan and save as latest.png first.");
+
+    } finally {
+
+      setLoadingScan(false);
+      setStatusText("System Ready");
+
     }
+
   };
 
   return (
-    <>
+
+    <div className="homepage">
+
       {/* HERO SECTION */}
-      <section style={hero}>
-        <h1>Fingerprint Based Blood Group Detection</h1>
-        <p>
-          A smart biometric system that predicts blood group using fingerprint
-          images — fast, reliable and non-invasive.
+
+      <section className="hero">
+
+        <motion.h1
+          style={{color:"white"}}
+          initial={{ opacity: 0, y: -30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+        >
+          Your Bloodgroup at  a Touch
+        </motion.h1>
+
+        <p className="subtitle">
+          A smart biometric system that predicts blood group using fingerprint images
         </p>
 
-        <div style={{ marginTop: "30px", display: "flex", gap: "20px" }}>
-          
 
-          <a href="/predict" style={heroBtn}>
-            Manual Upload
-          </a>
+        {/* BIOMETRIC SCANNER */}
+
+        <div className="scanner">
+
+          {/* rotating rings */}
+          <div className="ring ring1"></div>
+          <div className="ring ring2"></div>
+
+          {/* fingerprint icon */}
+          <motion.div
+            animate={{ scale: [1, 1.08, 1] }}
+            transition={{ duration: 1.5, repeat: Infinity }}
+          >
+            <Fingerprint size={120} color="white" />
+          </motion.div>
+
+          {/* scanning beam */}
+          <div className="scan-line"></div>
+
+          {/* biometric pulse waves */}
+          <div className="pulse pulse1"></div>
+          <div className="pulse pulse2"></div>
+          <div className="pulse pulse3"></div>
+
         </div>
+
+        <p className="status">
+          {loadingScan ? statusText : ""}
+        </p>
+
+
+        {/* BUTTONS */}
+
+        <div className="buttons">
+
+          {role === "user" && (
+
+            <button
+              className="btn"
+              onClick={() => navigate("/predict")}
+            >
+              Manual Upload
+            </button>
+
+          )}
+
+          {role === "admin" && (
+
+            <>
+              <button
+                className="scanBtn"
+                onClick={handleQuickScan}
+              >
+                {loadingScan ? "Scanning..." : "Quick Scan"}
+              </button>
+
+              <button
+                className="btn"
+                onClick={() => navigate("/predict")}
+              >
+                Manual Upload
+              </button>
+            </>
+
+          )}
+
+        </div>
+
       </section>
+
 
       {/* ABOUT SECTION */}
-      <section id="about" style={section}>
+
+      <section className="about">
+
         <h2>About the Project</h2>
+
         <p>
-          Blood group detection using fingerprint technology is an innovative
-          approach that eliminates the need for invasive blood tests.
+          This system predicts blood group from fingerprint patterns using a
+          trained CNN model. It eliminates the need for invasive blood tests
+          and demonstrates the potential of biometric-based medical analysis.
         </p>
+
       </section>
+
 
       {/* FEATURES */}
-      <section style={lightSection}>
+
+      <section className="features">
+
         <h2>Why HemoPrint?</h2>
 
-        <div style={cards}>
-          <div style={card}>
-            <h3>🧬 Biometric Accuracy</h3>
-            <p>Uses fingerprint patterns for unique identification.</p>
-          </div>
+        <div className="cards">
 
-          <div style={card}>
+          <motion.div whileHover={{ y: -10 }} className="card">
+            <h3>🧬 Biometric Identification</h3>
+            <p>Fingerprint ridge patterns are analysed using AI.</p>
+          </motion.div>
+
+          <motion.div whileHover={{ y: -10 }} className="card">
             <h3>🩸 Non-Invasive</h3>
             <p>No blood samples required.</p>
-          </div>
+          </motion.div>
 
-          <div style={card}>
+          <motion.div whileHover={{ y: -10 }} className="card">
             <h3>⚡ Fast Results</h3>
             <p>Instant blood group prediction.</p>
-          </div>
+          </motion.div>
+
         </div>
-        <span>⚠️</span>
-            <p style={{ fontSize: "12px", color: "#666", margin: 0 }}>
-              <strong>Disclaimer:</strong> This is a research prototype.
-              Results are for demonstration purposes only. Not intended for
-              clinical or medical use.
-            </p>
+
+        <p className="disclaimer">
+          ⚠️ <strong>Disclaimer:</strong> Research prototype only.
+          Not intended for medical diagnosis.
+        </p>
+
       </section>
 
-      {/* FOOTER */}
-      {/* <footer className="main-footer">
-  <div className="footer-container">
-
-    <div className="footer-section">
-      <h3>🩸 HemoPrint</h3>
-      <p>
-        AI-powered blood group detection using fingerprint analysis.
-        Built with advanced Deep Learning & CNN models.
-      </p>
     </div>
 
-    <div className="footer-section">
-      <h4>Quick Links</h4>
-      <ul>
-        <li><a href="/">Home</a></li>
-        <li><a href="/user/login">User Login</a></li>
-        <li><a href="/admin/login">Admin Login</a></li>
-        <li><a href="/about">About Project</a></li>
-      </ul>
-    </div>
-
-    <div className="footer-section">
-      <h4>Contact</h4>
-      <p>Email: support@hemoprint.ai</p>
-      <p>Phone: +91 98765 43210</p>
-      <p>Location: India</p>
-    </div>
-
-  </div>
-
-  <div className="footer-bottom">
-    <p>
-      ⚠️ This system is a research prototype. Not intended for clinical use.
-    </p>
-    <p>© 2026 HemoPrint | All Rights Reserved</p>
-  </div>
-</footer> */}
-
-    </>
   );
+
 }
-
-/* STYLES */
-
-const hero = {
-  minHeight: "90vh",
-  background: "linear-gradient(135deg, #1a237e, #b71c1c)",
-  color: "white",
-  display: "flex",
-  flexDirection: "column",
-  justifyContent: "center",
-  alignItems: "center",
-  textAlign: "center",
-  padding: "20px"
-};
-
-const heroBtn = {
-  padding: "12px 28px",
-  background: "white",
-  color: "#b71c1c",
-  borderRadius: "30px",
-  textDecoration: "none",
-  fontWeight: "bold"
-};
-
-const scanBtn = {
-  padding: "12px 28px",
-  background: "#ffcc00",
-  color: "#000",
-  borderRadius: "30px",
-  border: "none",
-  fontWeight: "bold",
-  cursor: "pointer"
-};
-
-const section = {
-  padding: "80px 20px",
-  textAlign: "center",
-  maxWidth: "800px",
-  margin: "auto"
-};
-
-const lightSection = {
-  padding: "80px 20px",
-  background: "#f6f8fc",
-  textAlign: "center"
-};
-
-const cards = {
-  display: "flex",
-  justifyContent: "center",
-  gap: "30px",
-  marginTop: "40px",
-  flexWrap: "wrap"
-};
-
-const card = {
-  background: "white",
-  padding: "25px",
-  borderRadius: "14px",
-  width: "250px",
-  boxShadow: "0 6px 15px rgba(0,0,0,0.1)"
-};
-
-const footer = {
-  padding: "20px",
-  textAlign: "center",
-  background: "#eef1f6",
-  fontSize: "14px"
-};
 
 export default HomePage;

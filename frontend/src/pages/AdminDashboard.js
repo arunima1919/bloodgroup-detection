@@ -1,11 +1,13 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
+import { Fingerprint } from "lucide-react";
 import API from "../api";
+import "./Admin.css";
 
-export default function AdminDashboard() {
+export default function AdminPage() {
   const navigate = useNavigate();
-  const [logs, setLogs] = useState([]);
-  const [showLogs, setShowLogs] = useState(false);
+
   const [loadingScan, setLoadingScan] = useState(false);
   const [currentStep, setCurrentStep] = useState("");
 
@@ -13,33 +15,31 @@ export default function AdminDashboard() {
     try {
       setLoadingScan(true);
 
-      // Call backend
-      const res = await API.post("/predict-scan");
-
-      // Only preprocessing steps (NO extra messages)
-      const preprocessingSteps = [
-        "Resizing image...",
+      const steps = [
+        "Resizing fingerprint...",
         "Converting to grayscale...",
-        "Normalizing pixel values...",
-        "Preparing input tensor..."
+        "Normalizing pixels...",
+        "Generating input tensor..."
       ];
 
-      // Show each step one by one
-      for (let i = 0; i < preprocessingSteps.length; i++) {
-        setCurrentStep(preprocessingSteps[i]);
-        await new Promise((resolve) => setTimeout(resolve, 700));
+      for (let i = 0; i < steps.length; i++) {
+        setCurrentStep(steps[i]);
+        await new Promise(resolve => setTimeout(resolve, 700));
       }
 
-      // After steps → go to result page
+      const res = await API.post("/predict-scan");
+
       navigate("/result", {
         state: {
           bloodGroup: res.data.blood_group,
           confidence: res.data.confidence,
           logId: res.data.log_id,
+          pattern: res.data.pattern,
+          gradcamImage: res.data.gradcam_image,
         },
       });
 
-    } catch (err) {
+    } catch {
       alert("No scanned fingerprint found. Please scan first.");
     } finally {
       setTimeout(() => {
@@ -49,154 +49,51 @@ export default function AdminDashboard() {
     }
   };
 
-  const fetchLogs = async () => {
-    try {
-      const res = await API.get("/admin/predictions");
-      setLogs(res.data);
-      setShowLogs(true);
-    } catch (err) {
-      alert("Unauthorized");
-    }
-  };
-
   return (
-    <div>
-      {/* HERO SECTION */}
-      <section style={hero}>
-        <h1>Admin Control Panel</h1>
-        <p>Scan fingerprints quickly or manually upload and review logs</p>
+    <div className="adminpage">
 
-        <div
-          style={{
-            marginTop: "30px",
-            display: "flex",
-            gap: "20px",
-            flexWrap: "wrap",
-            justifyContent: "center",
-          }}
+      {/* HERO / DASHBOARD */}
+      <section className="hero">
+        <motion.h1
+          style={{ color: "white" }}
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
         >
-          <button
-            style={scanBtn}
-            onClick={handleQuickScan}
-            disabled={loadingScan}
-          >
-            {loadingScan ? "Scanning..." : "⚡ Quick Scan"}
-          </button>
+          Admin Control Panel
+        </motion.h1>
+        <p className="subtitle">
+          Quick scans and manual uploads
+        </p>
 
-          <button style={heroBtn} onClick={() => navigate("/predict")}>
+        <div className="scanner">
+          <div className="ring ring1"></div>
+          <div className="ring ring2"></div>
+
+          <motion.div
+            animate={{ scale: [1, 1.08, 1] }}
+            transition={{ duration: 1.5, repeat: Infinity }}
+          >
+            <Fingerprint size={100} color="#ffffff" />
+          </motion.div>
+
+          <div className="pulse pulse1"></div>
+          <div className="pulse pulse2"></div>
+          <div className="pulse pulse3"></div>
+        </div>
+
+        <div className="buttons">
+          <button className="scanBtn" onClick={handleQuickScan}>
+            {loadingScan ? "Scanning..." : "Quick Scan"}
+          </button>
+          <button className="btn" onClick={() => navigate("/predict")}>
             Manual Upload
           </button>
-
-          <button style={logsBtn} onClick={fetchLogs}>
-            View Prediction Logs
-          </button>
         </div>
 
-        {/* LIVE PROCESS DISPLAY */}
-        {loadingScan && (
-          <div
-            style={{
-              marginTop: "30px",
-              fontSize: "18px",
-              fontWeight: "bold",
-            }}
-          >
-            {currentStep}
-          </div>
-        )}
+        {loadingScan && <p className="status">{currentStep}</p>}
       </section>
 
-      {/* LOGS TABLE */}
-      {showLogs && (
-        <div style={logsContainer}>
-          <h2>Prediction Logs</h2>
-          <table style={table}>
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Image</th>
-                <th>Prediction</th>
-                <th>Confidence</th>
-                <th>Actual</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {logs.map((log) => (
-                <tr key={log.id}>
-                  <td>{log.id}</td>
-                  <td>{log.image_name}</td>
-                  <td>{log.prediction}</td>
-                  <td>{(log.confidence * 100).toFixed(2)}%</td>
-                  <td>{log.actual_label || "Not verified"}</td>
-                  <td>
-                    {log.is_correct === null
-                      ? "Pending"
-                      : log.is_correct
-                      ? "Correct"
-                      : "Incorrect"}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
     </div>
   );
 }
-
-/* STYLES */
-const hero = {
-  minHeight: "60vh",
-  background: "linear-gradient(135deg, #1a237e, #b71c1c)",
-  color: "white",
-  display: "flex",
-  flexDirection: "column",
-  justifyContent: "center",
-  alignItems: "center",
-  textAlign: "center",
-  padding: "40px 20px",
-};
-
-const heroBtn = {
-  padding: "12px 28px",
-  background: "white",
-  color: "#b71c1c",
-  borderRadius: "30px",
-  border: "none",
-  fontWeight: "bold",
-  cursor: "pointer",
-};
-
-const scanBtn = {
-  padding: "12px 28px",
-  background: "#ffcc00",
-  color: "#000",
-  borderRadius: "30px",
-  border: "none",
-  fontWeight: "bold",
-  cursor: "pointer",
-};
-
-const logsBtn = {
-  padding: "12px 28px",
-  background: "#000",
-  color: "white",
-  borderRadius: "30px",
-  border: "none",
-  fontWeight: "bold",
-  cursor: "pointer",
-};
-
-const logsContainer = {
-  padding: "40px",
-  maxWidth: "95%",
-  overflowX: "auto",
-};
-
-const table = {
-  width: "100%",
-  borderCollapse: "collapse",
-  textAlign: "center",
-};

@@ -1,66 +1,50 @@
-import numpy as np
 import tensorflow as tf
-import cv2
-from tf_keras_vis.gradcam import Gradcam
-from tf_keras_vis.utils.scores import CategoricalScore
-from tf_keras_vis.utils.model_modifiers import ReplaceToLinear
-import shutil
-IMG_SIZE = 128
+import numpy as np
 
 
-def find_last_conv_layer(model):
+def get_last_conv_layer(model):
+    """
+    Automatically find the last Conv2D layer in the model
+    """
+
     for layer in reversed(model.layers):
         if isinstance(layer, tf.keras.layers.Conv2D):
             return layer.name
+
     raise ValueError("No Conv2D layer found in model.")
 
 
-def generate_gradcam(model, image_path, save_path):
-    # Load image
-    img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
-    if img is None:
-        raise ValueError("Image not readable for GradCAM")
+def generate_gradcam(img_array, model, layer_name=None):
 
-    img_resized = cv2.resize(img, (IMG_SIZE, IMG_SIZE))
-    img_normalized = img_resized.astype("float32") / 255.0
-    img_input = np.expand_dims(img_normalized, axis=(0, -1))
+    if layer_name is None:
+        layer_name = get_last_conv_layer(model)
 
-    # Predict class
-    preds = model.predict(img_input)
-    class_index = np.argmax(preds[0])
-
-    # 🔥 Get last conv layer name
-    last_conv_layer = find_last_conv_layer(model)
-
-    gradcam = Gradcam(
-        model,
-        model_modifier=ReplaceToLinear(),
-        clone=True
+    grad_model = tf.keras.models.Model(
+        inputs=model.input,
+        outputs=[
+            model.get_layer(layer_name).output,
+            model.output
+        ]
     )
 
-    cam = gradcam(
-        CategoricalScore(class_index),
-        img_input,
-        penultimate_layer=last_conv_layer
-    )
+    with tf.GradientTape() as tape:
 
-    heatmap = cam[0]
+        conv_outputs, predictions = grad_model(img_array)
 
-    # Normalize safely
-    heatmap = np.maximum(heatmap, 0)
-    if heatmap.max() != 0:
-        heatmap = heatmap / heatmap.max()
+        pred_index = tf.argmax(predictions[0])
 
-    heatmap = cv2.resize(heatmap, (IMG_SIZE, IMG_SIZE))
-    heatmap = np.uint8(255 * heatmap)
+        class_channel = predictions[:, pred_index]
 
-    # Convert grayscale to BGR
-    img_color = cv2.cvtColor(img_resized, cv2.COLOR_GRAY2BGR)
+    grads = tape.gradient(class_channel, conv_outputs)
 
-    heatmap_color = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
+    pooled_grads = tf.reduce_mean(grads, axis=(0, 1, 2))
 
-    superimposed = cv2.addWeighted(img_color, 0.6, heatmap_color, 0.4, 0)
+    conv_outputs = conv_outputs[0]
 
-    cv2.imwrite(save_path, superimposed)
+    heatmap = conv_outputs @ pooled_grads[..., tf.newaxis]
 
-    return class_index
+    heatmap = tf.squeeze(heatmap)
+
+    heatmap = tf.maximum(heatmap, 0) / (tf.reduce_max(heatmap) + 1e-8)
+
+    return heatmap.numpy()

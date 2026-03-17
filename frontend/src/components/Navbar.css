@@ -1,76 +1,111 @@
+/* Navbar container */
 .navbar {
-  height: 70px;
-  background-color: #ffffff;
-  border-bottom: 1px solid #e3f2fd;
+  height: 55px; /* reduced height */
+  background: rgba(26, 35, 126, 0.85);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 40px;
+  padding: 0 30px; /* reduced horizontal padding */
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  backdrop-filter: blur(6px);
 }
 
+/* Left: Logo + Brand */
 .nav-left {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .logo {
-  height: 36px;
+  height: 70px; /* smaller logo */
 }
 
 .brand {
-  font-size: 20px;
+  font-size: 18px; /* slightly smaller text */
   font-weight: bold;
-  color: #1a237e;
+  color: white;
 }
 
+/* Nav links */
 .nav-links {
   list-style: none;
   display: flex;
-  gap: 25px;
+  gap: 20px;
   align-items: center;
 }
 
 .nav-links li {
+  font-size: 14px; /* smaller text */
+  color: white;
+  font-weight: 500;
   cursor: pointer;
-  font-size: 14px;
-  color: #2c2c2c;
+  position: relative;
+  transition: all 0.2s ease;
 }
 
-.login-btn {
-  padding: 8px 18px;
-  background: linear-gradient(135deg, #1a237e, #b71c1c);
-  color: white;
+.nav-links li:hover {
+  color: #ffcc00; /* accent color */
+}
+
+/* Gradient Buttons */
+.login-btn,
+.logout-btn {
+  padding: 6px 16px; /* smaller buttons */
   border-radius: 20px;
   font-weight: 600;
-}
-.nav-links a {
-  text-decoration: none;
-  color: inherit;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+  background: linear-gradient(135deg, #1a237e, #b71c1c);
+  color: white;
+  position: relative;
+  overflow: hidden;
 }
 
-.nav-links a:hover {
-  color: #1a237e;
-}
-/* LOADER */
-.loader {
-  width: 18px;
-  height: 18px;
-  border: 3px solid rgba(255, 255, 255, 0.4);
-  border-top: 3px solid white;
+/* Pulse hover effect */
+.login-btn::after,
+.logout-btn::after {
+  content: "";
+  position: absolute;
+  width: 0;
+  height: 0;
   border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-  display: inline-block;
+  background: rgba(255, 204, 0, 0.4);
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  transition: width 0.3s ease, height 0.3s ease;
 }
 
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
+.login-btn:hover::after,
+.logout-btn:hover::after {
+  width: 120%;
+  height: 300%;
+}
+
+.login-btn:hover,
+.logout-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 12px rgba(255, 204, 0, 0.6);
+}
+
+/* Responsive: stack links on small screens */
+@media screen and (max-width: 768px) {
+  .nav-links {
+    gap: 15px;
   }
-}
-
-/* Disable button look */
-.scan-btn:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
+  .nav-left {
+    gap: 5px;
+  }
+  .brand {
+    font-size: 16px;
+  }
+  .login-btn,
+  .logout-btn {
+    padding: 5px 14px;
+  }
 }

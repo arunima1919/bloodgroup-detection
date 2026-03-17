@@ -1,0 +1,211 @@
+body{
+margin:0;
+font-family:Poppins, sans-serif;
+background:#f6f8fc;
+}
+
+/* HERO */
+
+.hero{
+min-height:90vh;
+background:linear-gradient(135deg,#1a237e,#b71c1c);
+display:flex;
+flex-direction:column;
+justify-content:center;
+align-items:center;
+text-align:center;
+color:white;
+padding:20px;
+}
+
+.hero h1{
+font-size:48px;
+margin-bottom:10px;
+}
+
+.hero p{
+max-width:600px;
+opacity:.9;
+}
+
+/* BUTTONS */
+
+.btn{
+padding:14px 30px;
+border-radius:30px;
+border:none;
+font-weight:bold;
+cursor:pointer;
+transition:all .25s ease;
+}
+
+.btn-upload{
+background:white;
+color:#b71c1c;
+}
+
+.btn-upload:hover{
+transform:translateY(-3px);
+box-shadow:0 10px 20px rgba(0,0,0,0.25);
+}
+
+.btn-scan{
+background:#ffcc00;
+}
+
+.btn-scan:hover{
+transform:scale(1.05);
+}
+
+/* SECTIONS */
+
+.section{
+padding:80px 20px;
+text-align:center;
+max-width:900px;
+margin:auto;
+}
+
+/* CARDS */
+
+.cards{
+display:flex;
+justify-content:center;
+gap:30px;
+margin-top:40px;
+flex-wrap:wrap;
+}
+
+.card{
+background:white;
+padding:25px;
+border-radius:14px;
+width:250px;
+box-shadow:0 10px 30px rgba(0,0,0,0.1);
+transition:all .25s ease;
+}
+
+.card:hover{
+transform:translateY(-8px);
+box-shadow:0 20px 40px rgba(0,0,0,0.2);
+}
+
+/* LOGIN / SIGNUP */
+
+.auth-container{
+min-height:100vh;
+display:flex;
+justify-content:center;
+align-items:center;
+background:linear-gradient(135deg,#1a237e,#b71c1c);
+}
+
+.auth-card{
+background:white;
+padding:40px;
+border-radius:16px;
+width:350px;
+box-shadow:0 15px 40px rgba(0,0,0,0.2);
+text-align:center;
+}
+
+.auth-card input{
+width:100%;
+padding:12px;
+margin-top:12px;
+border-radius:8px;
+border:1px solid #ccc;
+}
+
+.auth-card button{
+margin-top:15px;
+width:100%;
+padding:12px;
+background:linear-gradient(135deg,#1a237e,#b71c1c);
+color:white;
+border:none;
+border-radius:8px;
+font-weight:bold;
+cursor:pointer;
+}
+
+/* floating particles */
+
+.particles{
+position:absolute;
+top:0;
+left:0;
+width:100%;
+height:100%;
+overflow:hidden;
+z-index:0;
+}
+
+.particles span{
+position:absolute;
+display:block;
+width:6px;
+height:6px;
+background:rgba(255,255,255,0.6);
+border-radius:50%;
+animation:float 10s linear infinite;
+}
+
+@keyframes float{
+
+0%{
+transform:translateY(100vh) scale(0);
+opacity:0;
+}
+
+10%{
+opacity:1;
+}
+
+100%{
+transform:translateY(-10vh) scale(1);
+opacity:0;
+}
+
+}
+
+.scan-overlay{
+
+position:fixed;
+top:0;
+left:0;
+width:100%;
+height:100%;
+background:rgba(0,0,0,0.85);
+display:flex;
+flex-direction:column;
+align-items:center;
+justify-content:center;
+z-index:999;
+color:white;
+
+}
+
+.scan-img{
+
+width:200px;
+opacity:0.9;
+
+}
+
+.scan-line{
+
+position:absolute;
+width:220px;
+height:4px;
+background:#00ffcc;
+animation:scan 2s linear infinite;
+
+}
+
+@keyframes scan{
+
+0%{transform:translateY(-100px)}
+100%{transform:translateY(100px)}
+
+}

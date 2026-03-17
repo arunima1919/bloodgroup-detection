@@ -1,75 +1,113 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
 import API from "../api";
+import "./LoginPage.css";
 
 export default function LoginPage({ setUser }) {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
 
-  const handleLogin = async () => {
-    if (!email || !password) {
+  const [email,setEmail]=useState("");
+  const [password,setPassword]=useState("");
+  const [loading,setLoading]=useState(false);
+
+  const navigate=useNavigate();
+
+  const handleLogin=async()=>{
+
+    if(!email || !password){
       alert("Please enter email and password");
       return;
     }
 
-    try {
+    try{
+
       setLoading(true);
 
-      const res = await API.post("/login", { email, password }); // your backend endpoint
-
-      const loggedUser = res.data.user;
+      const res=await API.post("/login",{email,password});
+      const loggedUser=res.data.user;
 
       setUser(loggedUser);
-      localStorage.setItem("user", JSON.stringify(loggedUser));
 
-      if (loggedUser.role === "admin") {
-        navigate("/admin"); // admin dashboard
-      } else {
-        navigate("/"); // normal user homepage
+      localStorage.setItem("user",JSON.stringify(loggedUser));
+      localStorage.setItem("role",loggedUser.role.toLowerCase());
+
+      if(loggedUser.role.toLowerCase()==="admin"){
+        navigate("/admin");
+      }else{
+        navigate("/");
       }
-    } catch (err) {
+
+    }catch(err){
       alert(err.response?.data?.error || "Login failed");
-    } finally {
+    }
+    finally{
       setLoading(false);
     }
   };
 
-  return (
-    <div style={container}>
-      <div style={card}>
-        <h2 style={title}>Welcome Back</h2>
-        <p style={subtitle}>Login to continue</p>
+  return(
+
+    <div className="login-container">
+
+      {/* LEFT SIDE */}
+      <motion.div
+        className="login-left"
+        initial={{x:-60,opacity:0}}
+        animate={{x:0,opacity:1}}
+        transition={{duration:0.7}}
+      >
+
+        <h2 className="login-title">Welcome Back</h2>
+        <p className="login-subtitle">Login to access blood group prediction system</p>
 
         <input
           type="email"
-          placeholder="Email"
-          style={input}
+          placeholder="Email address"
+          className="login-input"
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          onChange={(e)=>setEmail(e.target.value)}
         />
 
         <input
           type="password"
           placeholder="Password"
-          style={input}
+          className="login-input"
           value={password}
-          onChange={(e) => setPassword(e.target.value)}
+          onChange={(e)=>setPassword(e.target.value)}
         />
 
-        <button style={button} onClick={handleLogin} disabled={loading}>
+        <button className="login-button" onClick={handleLogin}>
           {loading ? "Logging in..." : "Login"}
         </button>
-      </div>
+
+        <p className="register-link">
+          Never have an account? <span onClick={()=>navigate("/signup")}>Register now</span>
+        </p>
+
+      </motion.div>
+
+      {/* RIGHT SIDE */}
+      <motion.div
+        className="login-right"
+        initial={{x:60,opacity:0}}
+        animate={{x:0,opacity:1}}
+        transition={{duration:0.7}}
+      >
+
+        <div className="lock-icon">🔒</div>
+
+        <h3>Secure AI Blood Group Detection</h3>
+        <p>
+          Upload fingerprint images and let our AI model predict blood group
+          using advanced deep learning techniques.
+        </p>
+
+        <div className="pulse pulse1"></div>
+        <div className="pulse pulse2"></div>
+        <div className="pulse pulse3"></div>
+
+      </motion.div>
+
     </div>
   );
 }
-
-/* STYLES */
-const container = { minHeight: "90vh", display: "flex", justifyContent: "center", alignItems: "center", background: "#f4f6fb" };
-const card = { background: "white", padding: "40px", width: "350px", borderRadius: "14px", boxShadow: "0 10px 30px rgba(0,0,0,0.12)", textAlign: "center" };
-const title = { color: "#1a237e", marginBottom: "6px" };
-const subtitle = { fontSize: "13px", marginBottom: "20px", color: "#555" };
-const input = { width: "100%", padding: "12px", marginBottom: "14px", borderRadius: "8px", border: "1px solid #ccc" };
-const button = { width: "100%", padding: "12px", background: "linear-gradient(135deg, #1a237e, #b71c1c)", color: "white", border: "none", borderRadius: "8px", fontWeight: "bold", cursor: "pointer" };

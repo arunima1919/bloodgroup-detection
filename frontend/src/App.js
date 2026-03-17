@@ -8,6 +8,7 @@ import PredictPage from './pages/PredictPage';
 import Result from "./pages/Result";
 import Signup from './pages/SignupPage';
 import VerifyOTP from './pages/VerifyOTP';
+import AdminHistory from "./pages/AdminHistory";
 import './App.css';
 
 
@@ -33,7 +34,7 @@ function App() {
         <Route path="/result" element={<Result user={user} />} />
         <Route path="/admin" element={<AdminDashboard user={user} />} />
         <Route path="/verify" element={<VerifyOTP setUser={setUser} />} />
-        
+        <Route path="/admin-history" element={<AdminHistory />} />
       </Routes>
     </Router>
   );

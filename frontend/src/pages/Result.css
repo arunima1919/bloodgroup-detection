@@ -1,0 +1,217 @@
+/* Result Page Wrapper */
+.result-page {
+  background: linear-gradient(to bottom, #ffffff, #f5f6ff);
+  min-height: 100vh;
+  padding-bottom: 40px;
+  color: #2c2c2c;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Hero */
+.result-hero {
+  text-align: center;
+  padding: 55px 20px 35px;
+  background: linear-gradient(135deg, #1a237e, #b71c1c);
+  color: white;
+}
+
+.result-hero h1 {
+  font-size: 30px;
+  margin: 0;
+  font-weight: 600;
+}
+
+.result-card {
+  max-width: 500px;
+  width: 90%;
+  margin: -35px auto 30px;
+  background: white;
+  border-radius: 16px;
+  padding: 28px 30px;
+  text-align: center;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.15);
+  animation: aiPulse 4s infinite alternate;
+}
+
+/* Fingerprint Image Preview */
+.image-container {
+  position: relative;
+  display: inline-block;
+}
+
+.scan-ring {
+  position: absolute;
+  top: -10px;
+  left: -10px;
+  width: 270px;
+  height: 270px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  animation: pulseRing 2s infinite;
+}
+
+@keyframes pulseRing {
+  0% { transform: scale(0.95); opacity: 0.7; }
+  70% { transform: scale(1.05); opacity: 0.3; }
+  100% { transform: scale(0.95); opacity: 0.7; }
+}
+
+/* Blood Group Text */
+.blood-group {
+  font-size: 48px;
+  margin-left: 10px;
+  color: #b71c1c;
+  animation: reveal 0.6s ease;
+}
+
+@keyframes reveal {
+  0% { opacity: 0; transform: scale(0.5); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+/* Scan Line Animation */
+.scan-line {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 4px;
+  background: linear-gradient(90deg, #1a237e, #b71c1c);
+  box-shadow: 0 0 10px rgba(183, 28, 28, 0.8);
+  animation: scanMove 2s linear infinite;
+}
+
+@keyframes scanMove {
+  0% { top: 0; }
+  100% { top: 100%; }
+}
+
+/* AI Pulse Effect */
+@keyframes aiPulse {
+  0% { box-shadow: 0 10px 24px rgba(0,0,0,0.15); }
+  100% { box-shadow: 0 10px 40px rgba(26,35,126,0.35); }
+}
+
+/* Progress Bar & Status */
+.progress-bar {
+  width: 100%;
+  height: 7px;
+  background: #eee;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(135deg, #1a237e, #b71c1c);
+  transition: width 0.4s ease;
+}
+
+.scan-status {
+  font-size: 13px;
+  margin-top: 6px;
+  color: #666;
+}
+
+/* GradCAM Section */
+.gradcam-section {
+  margin-top: 30px;
+}
+
+.gradcam-section h3 {
+  color: #1a237e;
+  margin-bottom: 10px;
+}
+
+.gradcam-img {
+  width: 260px;
+  border-radius: 10px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.18);
+}
+
+.gradcam-text {
+  font-size: 13px;
+  color: #666;
+  margin-top: 8px;
+}
+
+/* Buttons */
+.btn-solid {
+  background: linear-gradient(135deg, #1a237e, #b71c1c);
+  color: white;
+  padding: 10px 22px;
+  border-radius: 22px;
+  border: none;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-outline {
+  border: 2px solid #1a237e;
+  color: #1a237e;
+  padding: 10px 22px;
+  border-radius: 22px;
+  background: white;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-solid:hover {
+  opacity: 0.9;
+}
+
+.btn-outline:hover {
+  background: #1a237e;
+  color: white;
+}
+
+.blood-group-wrapper {
+  text-align: center; /* center everything */
+  margin-top: 10px;
+}
+
+.blood-group-wrapper .label {
+  font-size: 18px;
+  font-weight: 500;
+  color: #555;
+  margin-bottom: 6px;
+  display: block;
+}
+
+.blood-group-wrapper .blood-group {
+  font-size: 48px;
+  font-weight: 700;
+  color: #b71c1c;
+  display: block;
+  animation: reveal 0.6s ease;
+}
+
+/* Fingerprint Pattern Display */
+.pattern-wrapper {
+  text-align: center; /* center everything */
+  margin-top: 15px;
+}
+
+.pattern-wrapper .label {
+  font-size: 18px;
+  font-weight: 500;
+  color: #555;
+  margin-bottom: 6px;
+  display: block;
+}
+
+.pattern-wrapper .pattern {
+  font-size: 20px;
+  font-weight: 600;
+  color: #1a237e;
+  display: block;
+  animation: revealPattern 0.6s ease;
+}
+
+/* Animation similar to blood group reveal */
+@keyframes revealPattern {
+  0% { opacity: 0; transform: scale(0.5); }
+  100% { opacity: 1; transform: scale(1); }
+}

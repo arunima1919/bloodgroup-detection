@@ -1,0 +1,145 @@
+.login-container{
+  min-height:100vh;
+  display:flex;
+  font-family:sans-serif;
+}
+
+/* LEFT SIDE */
+
+.login-left{
+  flex:1;
+  background:white;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  padding:80px;
+}
+
+.login-title{
+  font-size:32px;
+  color:#1a237e;
+  margin-bottom:10px;
+}
+
+.login-subtitle{
+  font-size:14px;
+  color:#666;
+  margin-bottom:30px;
+}
+
+.login-input{
+  width:100%;
+  padding:14px;
+  margin-bottom:16px;
+  border-radius:8px;
+  border:1px solid #ccc;
+  font-size:14px;
+  transition:0.3s;
+}
+
+.login-input:focus{
+  outline:none;
+  border-color:#1a237e;
+  box-shadow:0 0 5px rgba(26,35,126,0.2);
+}
+
+.login-button{
+  width:100%;
+  padding:14px;
+  background:linear-gradient(135deg,#1a237e,#b71c1c);
+  color:white;
+  border:none;
+  border-radius:8px;
+  font-weight:bold;
+  cursor:pointer;
+  transition:0.3s;
+}
+
+.login-button:hover{
+  transform:scale(1.03);
+}
+
+.register-link{
+  margin-top:18px;
+  font-size:13px;
+}
+
+.register-link span{
+  color:#1a237e;
+  cursor:pointer;
+  font-weight:bold;
+}
+
+/* RIGHT SIDE */
+
+.login-right{
+  flex:1;
+  background:linear-gradient(135deg,#1a237e,#b71c1c);
+  color:white;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+  text-align:center;
+  padding:60px;
+  position:relative;
+  overflow:hidden;
+}
+
+.login-right h3{
+  margin-top:20px;
+  font-size:24px;
+}
+
+.login-right p{
+  font-size:14px;
+  max-width:300px;
+  margin-top:10px;
+}
+
+/* LOCK ICON */
+
+.lock-icon{
+  font-size:90px;
+  z-index:2;
+}
+
+/* PULSE ANIMATION */
+
+.pulse{
+position:absolute;
+border:2px solid rgba(255,255,255,0.4);
+border-radius:50%;
+animation:pulse 3s infinite;
+}
+
+.pulse1{
+width:200px;
+height:200px;
+}
+
+.pulse2{
+width:280px;
+height:280px;
+animation-delay:1s;
+}
+
+.pulse3{
+width:350px;
+height:350px;
+animation-delay:2s;
+}
+
+@keyframes pulse{
+0%{
+transform:scale(0.6);
+opacity:0.7;
+}
+70%{
+transform:scale(1.2);
+opacity:0;
+}
+100%{
+opacity:0;
+}
+}
